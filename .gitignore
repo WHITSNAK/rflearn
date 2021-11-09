@@ -1,1 +1,7 @@
 statics/
+.pytest_cache/
+.vscode/
+__pycache__/
+*.code-workspace
+.coverage
+cov.*
