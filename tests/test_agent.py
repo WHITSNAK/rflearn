@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from copy import deepcopy
-from rflearn.agent import EpsilonGreedyAgent, UCBEpsAgent
+from rflearn.agent import EpsilonGreedyAgent, UCBAgent
 
 
 def setup_agent(agent_obj, data):

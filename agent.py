@@ -143,7 +143,7 @@ class EpsilonGreedyAgent(FiniteActionAgent):
         return q
 
 
-class UCBEpsAgent(EpsilonGreedyAgent):
+class UCBAgent(EpsilonGreedyAgent):
     """Upper Confidence Bound Eps Greedy Agent"""
     def __init__(self, num_actions, bound_c=2, init_q=0, step_size=None):
         super().__init__(num_actions, None, init_q, step_size)
@@ -161,7 +161,7 @@ class UCBEpsAgent(EpsilonGreedyAgent):
         if self.num_steps <= 1:  # log(0) is undefined, log(1) is 0 bad for division
             action = np.argmin(self.action_count)
         else:
-            with np.errstate(divide='ignore'):
+            with np.errstate(divide='ignore'):  # intended inf with c/0 from numpy
                 var = np.log(self.num_steps) / np.array(self.action_count)
             var = np.where(np.isnan(var), np.inf, var)
             bound = self.bound_c * np.sqrt(var)
