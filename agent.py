@@ -64,7 +64,6 @@ class FiniteActionAgent:
         raise NotImplementedError()
 
 
-
 class EpsilonGreedyAgent(FiniteActionAgent):
     """
     Toy RL Agent that is based a finite set of action space

@@ -123,7 +123,7 @@ def test_epsilon_agent_constant_step(epsagent):
 
 
 def test_ucb1(ucbagent):
-    agent = setup_agent(UCBEpsAgent, ucbagent)
+    agent = setup_agent(UCBAgent, ucbagent)
     
     assert agent.num_steps == 0
     action = agent.get_action()
@@ -136,7 +136,7 @@ def test_ucb1(ucbagent):
 
 
 def test_ucb2(ucbagent):
-    agent = setup_agent(UCBEpsAgent, ucbagent)
+    agent = setup_agent(UCBAgent, ucbagent)
 
     for i in range(4):
         action = agent.agent_step(reward=(10-i)/10)
