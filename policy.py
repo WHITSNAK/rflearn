@@ -207,11 +207,3 @@ class ValueIteration(PolicyIteration):
         """Evaluate the existing policy with only one sweep"""
         for state in self.env.S:
             _ = self.update_value_q(state)
-
-    def transform(self):
-        """Find the optimal policy"""
-        policy_stable = False
-
-        while not policy_stable:
-            self.evaluate_policy()
-            policy_stable = self.improve_policy()
