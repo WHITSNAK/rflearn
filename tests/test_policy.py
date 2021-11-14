@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+import pandas as pd
 from rflearn.policy import PolicyIteration, ValueIteration
 from rflearn.env import GridWorld
 
@@ -7,8 +8,8 @@ from rflearn.env import GridWorld
 @pytest.fixture
 def grid44_random():
     grid = GridWorld(4, 4)
-    value = np.zeros(shape=len(grid.S))
-    policy = np.ones(shape=(value.shape + (len(grid.ACTIONS), ))) / len(grid.ACTIONS)
+    value = pd.Series(0, grid.S)
+    policy = pd.DataFrame(1, index=grid.S, columns=grid.ACTIONS) / len(grid.ACTIONS)
     return grid, value, policy
 
 

@@ -1,32 +1,9 @@
 """
 Module that hosts all Agent Environments
 """
-from abc import abstractmethod
 import numpy as np
 from itertools import product
-
-
-class FiniteMDPENV:
-    """
-    Abstract Finite MDP Enviornment that ensures template/API
-    - it has finite discrete action space
-    - and it also has finite discrete state space
-    """
-    @abstractmethod
-    def A(self):
-        return NotImplementedError()
-    
-    @abstractmethod
-    def S(self):
-        return NotImplementedError()
-    
-    @abstractmethod
-    def step(self):
-        return NotImplementedError()
-    
-    @abstractmethod
-    def transitions(self):
-        return NotImplementedError()
+from .base import FiniteMDPENV
 
 
 class GridWorld(FiniteMDPENV):

@@ -3,9 +3,9 @@ Module that hosts algorithm to do policy iteration
 and value iteration
 """
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 from abc import abstractmethod
-from copy import deepcopy
 
 
 class GPI:
@@ -22,8 +22,8 @@ class GPI:
     fit parameter
     -------------
     env: the enviornment
-    value: [1 x S], expected value for all states in a row vector
-    policy: [S x A], stochastic policy for all states map to action
+    value: [1 x S] pd.Series, expected value for all states in a row vector
+    policy: [S x A] pd.DataFrame, stochastic policy for all states map to action
     gamma: float, the reward discount rate
     """
     def __init__(self, theta=0.001):
@@ -34,8 +34,8 @@ class GPI:
     def fit(self, env, value, policy, gamma):
         """Fit the model with the env other policy"""
         self.env = env
-        self.value = deepcopy(value)
-        self.policy = deepcopy(policy)
+        self.value = value.copy()
+        self.policy = policy.copy()
         self.gamma = gamma
     
     @abstractmethod
@@ -67,10 +67,10 @@ class GPI:
         """
         policy_stable = True
         for state in self.env.S:
-            old = self.policy[state].copy()
+            old = self.policy.loc[state].copy()
             self.q_greedify_policy(state)
             
-            if not np.array_equal(self.policy[state], old):
+            if not np.array_equal(self.policy.loc[state], old):
                 policy_stable = False
                 
         return policy_stable
@@ -85,7 +85,7 @@ class GPI:
         q_sa = np.round(self.get_qvalues(state), self.sig_digits)
         max_q = np.max(q_sa)
         new_pi_s = [1 if q==max_q else 0 for q in q_sa]
-        self.policy[state] = new_pi_s
+        self.policy.loc[state] = new_pi_s
 
 
 class PolicyIteration(GPI):
@@ -120,10 +120,10 @@ class PolicyIteration(GPI):
         ------
         new value of the state v_k+1(s)
         """
-        pi_s = self.policy[state]
+        pi_s = self.policy.loc[state]
         q_sa = self.get_qvalues(state)
         new_v = pi_s @ q_sa
-        self.value[state] = new_v
+        self.value.loc[state] = new_v
         return new_v
 
 
@@ -157,7 +157,7 @@ class PolicyIteration(GPI):
         while delta > self.theta:
             delta = 0
             for state in self.env.S:
-                val = self.value[state]
+                val = self.value.loc[state]
                 new_v = self.update_value(state)
                 delta = max(delta, abs(val - new_v))
     
@@ -236,19 +236,20 @@ class MCIteration(GPI):
     def update_value(self, state, new_val):
         step_size = self.state_counts[state]
         step_size += 1
-        
-        old_val = self.value[state]
-        self.value[state] += 1/step_size * (new_val - old_val)
+
+        old_val = self.value.loc[state]
+        self.value.loc[state] += 1/step_size * (new_val - old_val)
         self.state_counts[state] = step_size
     
 
     def get_episode(self):
         trace = {'steps': 0, 'state': [], 'action': [], 'reward': []}
 
-        s0 = np.random.choice(self.env.S)
-        while not self.env.is_terminal(s0):
-            a = np.random.choice(self.env.A, p=self.policy[s0])
-            s1, r = self.env.step(s0, a)
+        s0 = self.env.start()
+        # s0 = np.random.choice(self.env.S)
+        while not self.env.is_terminal():
+            a = np.random.choice(self.env.A, p=self.policy.loc[s0])
+            s1, r = self.env.step(a)
             trace['state'].append(s0)
             trace['action'].append(a)
             trace['reward'].append(r)
