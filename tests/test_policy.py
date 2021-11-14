@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from rflearn.policy import PolicyIteration
+from rflearn.policy import PolicyIteration, ValueIteration
 from rflearn.env import GridWorld
 
 
@@ -20,6 +20,13 @@ def pi_on_44grid(grid44_random):
     pi_model.fit(grid, value, policy, gamma=1)
     return pi_model
 
+@pytest.fixture
+def vi_on_44grid(grid44_random):
+    grid, value, policy = grid44_random
+
+    pi_model = ValueIteration(theta=0.001)
+    pi_model.fit(grid, value, policy, gamma=1)
+    return pi_model
 
 def test_policy_iteration_grid_44_1step(pi_on_44grid):
     pi_model = pi_on_44grid
@@ -57,9 +64,9 @@ def test_policy_iteration_grid_44_1step(pi_on_44grid):
     )
 
 
-def test_value_iteration_grid_44_allsteps(pi_on_44grid):
-    pi_model = pi_on_44grid
-    pi_model.value_iteration()
+def test_value_iteration_grid_44_allsteps(vi_on_44grid):
+    pi_model = vi_on_44grid
+    pi_model.transform()
 
     assert np.allclose(
         pi_model.value,
@@ -94,7 +101,7 @@ def test_value_iteration_grid_44_allsteps(pi_on_44grid):
 
 def test_policy_iteration_grid_44_allsteps(pi_on_44grid):
     pi_model = pi_on_44grid
-    pi_model.policy_iteration()
+    pi_model.transform()
 
     # this is not nesscary coverage to a same result with value iteration
     assert np.allclose(

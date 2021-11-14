@@ -7,7 +7,11 @@ from itertools import product
 
 
 class FiniteMDPENV:
-    """Abstract Finite MDP Enviornment that ensures template/API"""
+    """
+    Abstract Finite MDP Enviornment that ensures template/API
+    - it has finite discrete action space
+    - and it also has finite discrete state space
+    """
     @abstractmethod
     def A(self):
         return NotImplementedError()
@@ -26,6 +30,22 @@ class FiniteMDPENV:
 
 
 class GridWorld(FiniteMDPENV):
+    """
+    2D Grid World Enviornment with blockage support
+    - if the grid value is 0, it has -1 reward
+    - if the grid value is 1, it has -10 reward, aka the blockage
+
+    Avaliable actions: {up, down, left, right}
+    Avaliable states: {0, 1, ...., nrow * ncol -1}
+    System transition: visible
+
+    parameter
+    ---------
+    nrow, ncol: int, the two dimensions of the grid
+    grid: list of list, the actual 2D grid with 0/1 values
+        it will replace nrow, ncol if this is given
+    terminals: list of states, states that count as the terminal state with 0 reward
+    """
     ACTIONS = ['up', 'down', 'left', 'right']
     ACTION_MAP = {
         'up': (-1, 0),
@@ -34,11 +54,20 @@ class GridWorld(FiniteMDPENV):
         'right': (0, 1),
     }
 
-    def __init__(self, nrow, ncol, grid=None):
-        self.nrow = nrow
-        self.ncol = ncol
-        self.shape = (nrow, ncol)
-        self.grid = [[0]*ncol for _ in range(nrow)] if grid is None else grid
+    def __init__(self, nrow=None, ncol=None, grid=None, terminals=None):
+        if grid is not None:
+            self.grid = grid
+            self.nrow = len(grid)
+            self.ncol = len(grid[0])
+        else:
+            self.nrow = nrow
+            self.ncol = ncol
+            self.grid = [[0]*ncol for _ in range(nrow)]
+
+        self.shape = (self.nrow, self.ncol)
+        self.terminals = \
+            [0, self.nrow * self.ncol - 1] \
+            if terminals is None else terminals
     
     def __iter__(self):
         for cell in product(range(self.nrow), range(self.ncol)):
@@ -53,13 +82,13 @@ class GridWorld(FiniteMDPENV):
         return [state[0]*self.ncol + state[1] for state in self]
 
     def _to_square(self, state):
-        return state//self.nrow, state%self.ncol
+        return state//self.ncol, state%self.ncol
     
     def _to_state(self, row, col):
         return row * self.ncol + col
 
     def is_terminal(self, state):
-        return state in [0, self.nrow*self.ncol-1]
+        return state in self.terminals
 
     def get_move(self, action):
         return self.ACTION_MAP[action.lower()]
@@ -68,7 +97,11 @@ class GridWorld(FiniteMDPENV):
         if self.is_terminal(state):
             return 0
         else:
-            return -1
+            row, col = self._to_square(state)
+            if self.grid[row][col] == 1:  # blocks
+                return -10
+            else:
+                return -1
     
     def get_new_state(self, state, move):
         row, col = self._to_square(state)
@@ -84,19 +117,18 @@ class GridWorld(FiniteMDPENV):
         ]
 
     def step(self, state, action):
+        # essentially, rewards are the number of steps to terminal state
+        reward = self.get_reward(state)
         move = self.get_move(action)
         new_state = self.get_new_state(state, move)
-        reward = self.get_reward(state)
         return new_state, reward
     
     def transitions(self, state, action):
         new_state, reward = self.step(state, action)
-        trans = []
-        for s1 in self.S:
-            if self.is_terminal(state):
-                trans.append((0, 0))
-            elif s1 == new_state:
-                trans.append((reward, 1))
-            else:
-                trans.append((0 ,0))
-        return np.array(trans)
+        trans = np.zeros(shape=(len(self.S), 2))
+        
+        if self.is_terminal(state):
+            return trans
+        
+        trans[new_state] = (reward, 1)
+        return trans
