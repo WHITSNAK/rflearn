@@ -2,9 +2,9 @@
 Module that hosts algorithm to do policy iteration
 and value iteration
 """
-
-from abc import abstractmethod
 import numpy as np
+from tqdm import tqdm
+from abc import abstractmethod
 from copy import deepcopy
 
 
@@ -52,44 +52,11 @@ class GPI:
     def get_qvalues(self, state):
         """Used for value updating from the update diagram"""
         raise NotImplementedError()
-
-    def update_value_v(self, state):
-        """
-        Policy evaluation using bellman state-value equation updates
-            to get the expected value v(s) for the current policy
-
-        parameter
-        ---------
-        state: the target state to do the update
-
-        return
-        ------
-        new value of the state v_k+1(s)
-        """
-        pi_s = self.policy[state]
-        q_sa = self.get_qvalues(state)
-        new_v = pi_s @ q_sa
-        self.value[state] = new_v
-        return new_v
     
-
-    def update_value_q(self, state):
-        """
-        Policy evaluation using bellman action-value equation updates
-            to get the expected value v(s) for the current policy
-
-        parameter
-        ---------
-        state: the target state to do the update
-
-        return
-        ------
-        new value of the state v_k+1(s)
-        """
-        q_sa = self.get_qvalues(state)
-        new_val = np.max(q_sa)
-        self.value[state] = new_val
-        return new_val
+    @abstractmethod
+    def update_value(self, state):
+        """Used for evaluate policy method"""
+        raise NotImplementedError()
       
 
     def improve_policy(self):
@@ -121,7 +88,6 @@ class GPI:
         self.policy[state] = new_pi_s
 
 
-
 class PolicyIteration(GPI):
     """
     Policy iteration algorithm that dances between value and policy
@@ -141,6 +107,26 @@ class PolicyIteration(GPI):
     policy: [S x A], stochastic policy for all states map to action
     gamma: float, the reward discount rate
     """
+    def update_value(self, state):
+        """
+        Policy evaluation using bellman state-value equation updates
+            to get the expected value v(s) for the current policy
+
+        parameter
+        ---------
+        state: the target state to do the update
+
+        return
+        ------
+        new value of the state v_k+1(s)
+        """
+        pi_s = self.policy[state]
+        q_sa = self.get_qvalues(state)
+        new_v = pi_s @ q_sa
+        self.value[state] = new_v
+        return new_v
+
+
     def get_qvalues(self, state):
         """
         Get all sucessor q(s',a') for the give state from the updates diagram
@@ -172,7 +158,7 @@ class PolicyIteration(GPI):
             delta = 0
             for state in self.env.S:
                 val = self.value[state]
-                new_v = self.update_value_v(state)
+                new_v = self.update_value(state)
                 delta = max(delta, abs(val - new_v))
     
 
@@ -203,7 +189,77 @@ class ValueIteration(PolicyIteration):
     policy: [S x A], stochastic policy for all states map to action
     gamma: float, the reward discount rate
     """
+    def update_value(self, state):
+        """
+        Policy evaluation using bellman action-value equation updates
+            to get the expected value v(s) for the current policy
+
+        parameter
+        ---------
+        state: the target state to do the update
+
+        return
+        ------
+        new value of the state v_k+1(s)
+        """
+        q_sa = self.get_qvalues(state)
+        new_val = np.max(q_sa)
+        self.value[state] = new_val
+        return new_val
+
+
     def evaluate_policy(self):
         """Evaluate the existing policy with only one sweep"""
         for state in self.env.S:
-            _ = self.update_value_q(state)
+            _ = self.update_value(state)
+
+
+class MCIteration(GPI):
+    def fit(self, env, value, policy, gamma):
+        super().fit(env, value, policy, gamma)
+        self.state_counts = {k:0 for k in self.env.S}
+
+    def transform(self, iter=1000):
+        for _ in tqdm(range(iter)):
+            self.evaluate_policy()
+
+    def evaluate_policy(self):
+        ret = 0
+        episode = self.get_episode()
+        for step in range(episode['steps']-1, -1, -1):
+            state = episode['state'][step]
+            # action = episode['action'][step]
+            ret = self.gamma * ret + episode['reward'][step]
+            self.update_value(state, ret)
+    
+    
+    def update_value(self, state, new_val):
+        step_size = self.state_counts[state]
+        step_size += 1
+        
+        old_val = self.value[state]
+        self.value[state] += 1/step_size * (new_val - old_val)
+        self.state_counts[state] = step_size
+    
+
+    def get_episode(self):
+        trace = {'steps': 0, 'state': [], 'action': [], 'reward': []}
+
+        s0 = np.random.choice(self.env.S)
+        while not self.env.is_terminal(s0):
+            a = np.random.choice(self.env.A, p=self.policy[s0])
+            s1, r = self.env.step(s0, a)
+            trace['state'].append(s0)
+            trace['action'].append(a)
+            trace['reward'].append(r)
+            trace['steps'] += 1
+            s0 = s1
+        return trace
+
+
+    def get_qvalues(self, state):
+        """
+        MC is model-free method
+        does not need the complete transition env probability
+        """
+        pass
