@@ -1,12 +1,11 @@
 import pytest
 import numpy as np
-import pandas as pd
-from rflearn.policy import PolicyIteration, ValueIteration
+from rflearn.algo import PolicyIteration, ValueIteration
 from rflearn.env import GridWorld
 
 
 @pytest.fixture
-def grid44_random():
+def grid44():
     grid = GridWorld(4, 4)
     value = np.zeros(shape=len(grid.S))
     policy = np.ones(shape=(len(grid.S), len(grid.A))) / len(grid.A)
@@ -14,20 +13,21 @@ def grid44_random():
 
 
 @pytest.fixture
-def pi_on_44grid(grid44_random):
-    grid, value, policy = grid44_random
+def pi_on_44grid(grid44):
+    grid, value, policy = grid44
 
-    pi_model = PolicyIteration(theta=0.001)
-    pi_model.fit(grid, value, policy, gamma=1)
+    pi_model = PolicyIteration(grid, value, policy)
+    pi_model.fit(gamma=1, theta=0.001)
     return pi_model
 
 @pytest.fixture
-def vi_on_44grid(grid44_random):
-    grid, value, policy = grid44_random
+def vi_on_44grid(grid44):
+    grid, value, policy = grid44
 
-    pi_model = ValueIteration(theta=0.001)
-    pi_model.fit(grid, value, policy, gamma=1)
+    pi_model = ValueIteration(grid, value, policy)
+    pi_model.fit(gamma=1, theta=0.001)
     return pi_model
+
 
 def test_policy_iteration_grid_44_1step(pi_on_44grid):
     pi_model = pi_on_44grid
