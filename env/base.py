@@ -23,13 +23,13 @@ class FiniteMDPENV:
         raise NotImplementedError()
     
     @abstractmethod
-    def step(self):
+    def step(self, action):
         raise NotImplementedError()
     
     @abstractmethod
-    def transitions(self):
+    def transitions(self, state, action):
         raise NotImplementedError()
 
     @abstractmethod
-    def is_terminal(self, state):
+    def is_terminal(self):
         raise NotImplementedError()

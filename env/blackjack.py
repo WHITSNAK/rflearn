@@ -100,12 +100,22 @@ class Deck:
         return 'Deck contains %s' % s
 
 
+def blackjack_states():
+    states = []
+    for has_ace in [True, False]:
+        for player_v in range(12, 22):
+            for dealer_v in range(1, 11):
+                states.append((has_ace, player_v, dealer_v))
+    return states
+
 class BlackJack(FiniteMDPENV):
+    SMAPPER = {s:i for i, s in enumerate(blackjack_states())}
+    NMAPPER = {i:s for s, i in SMAPPER.items()}
+
     def __init__(self, debug=False):
         self.debug = debug
         self.score = 0
         self.reset()
-    
     
     def reset(self):
         self.in_play = False
@@ -114,37 +124,14 @@ class BlackJack(FiniteMDPENV):
         self.dealer_hand = None
         self.player_hand = None
     
-
     @property
     def A(self):
         return ['hit', 'stand']
 
     @property
     def S(self):
-        states = []
-        for has_ace in [True, False]:
-            for player_v in range(12, 22):
-                for dealer_v in range(1, 11):
-                    states.append((has_ace, player_v, dealer_v))
-        return states
-
-    def __get_state(self):
-        cnt = 0
-        if not self.player_hand.usable_ace():
-            cnt += 100
-        
-        pv = self.player_hand.get_value()
-        fdv = self.dealer_hand.get_card_value(self.dealer_hand.cards[0])
-        cnt += (pv-12) * 10 + (fdv-1+1) - 1
-        return cnt
+        return list(range(200))
     
-    def get_state(self):
-        return (
-            self.player_hand.usable_ace(),
-            self.player_hand.get_value(),
-            self.dealer_hand.get_card_value(self.dealer_hand.cards[0])
-        )
-
     def start(self):
         self.deal()
         return self.get_state()
@@ -158,6 +145,22 @@ class BlackJack(FiniteMDPENV):
         elif action == 'stand':
             reward = self.stand()
         return self.get_state(), reward
+    
+    def get_state(self):
+        cnt = 0
+        if not self.player_hand.usable_ace():
+            cnt += 100
+        
+        pv = self.player_hand.get_value()
+        fdv = self.dealer_hand.get_card_value(self.dealer_hand.cards[0])
+        cnt += (pv-12) * 10 + (fdv-1+1) - 1
+        return cnt
+    
+    def _to_state(self, state):
+        return self.NMAPPER[state]
+    
+    def _to_idx(self, state):
+        return self.SMAPPER[state]
 
 
     def deal(self):

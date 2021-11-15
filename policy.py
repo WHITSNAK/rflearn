@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from abc import abstractmethod
+from itertools import product
 
 
 class GPI:
@@ -22,8 +23,8 @@ class GPI:
     fit parameter
     -------------
     env: the enviornment
-    value: [1 x S] pd.Series, expected value for all states in a row vector
-    policy: [S x A] pd.DataFrame, stochastic policy for all states map to action
+    value: [1 x S], expected value for all states in a row vector
+    policy: [S x A], stochastic policy for all states map to action
     gamma: float, the reward discount rate
     """
     def __init__(self, theta=0.001):
@@ -59,23 +60,6 @@ class GPI:
         raise NotImplementedError()
       
 
-    def improve_policy(self):
-        """
-        Improve the existing policy by greedifying in respect to the
-            current value estimates v_k(s)
-        If π(a|s) does not change means we converaged to the optimal policy π*
-        """
-        policy_stable = True
-        for state in self.env.S:
-            old = self.policy.loc[state].copy()
-            self.q_greedify_policy(state)
-            
-            if not np.array_equal(self.policy.loc[state], old):
-                policy_stable = False
-                
-        return policy_stable
-
-
     def q_greedify_policy(self, state):
         """
         Mutate the policy to be greedy with respect to the q-values
@@ -85,7 +69,7 @@ class GPI:
         q_sa = np.round(self.get_qvalues(state), self.sig_digits)
         max_q = np.max(q_sa)
         new_pi_s = [1 if q==max_q else 0 for q in q_sa]
-        self.policy.loc[state] = new_pi_s
+        self.policy[state] = np.divide(new_pi_s, np.sum(new_pi_s))
 
 
 class PolicyIteration(GPI):
@@ -107,6 +91,15 @@ class PolicyIteration(GPI):
     policy: [S x A], stochastic policy for all states map to action
     gamma: float, the reward discount rate
     """
+    def transform(self):
+        """Find the optimal policy"""
+        policy_stable = False
+        
+        while not policy_stable:
+            self.evaluate_policy()
+            policy_stable = self.improve_policy()
+
+
     def update_value(self, state):
         """
         Policy evaluation using bellman state-value equation updates
@@ -120,10 +113,10 @@ class PolicyIteration(GPI):
         ------
         new value of the state v_k+1(s)
         """
-        pi_s = self.policy.loc[state]
+        pi_s = self.policy[state]
         q_sa = self.get_qvalues(state)
         new_v = pi_s @ q_sa
-        self.value.loc[state] = new_v
+        self.value[state] = new_v
         return new_v
 
 
@@ -157,18 +150,26 @@ class PolicyIteration(GPI):
         while delta > self.theta:
             delta = 0
             for state in self.env.S:
-                val = self.value.loc[state]
+                val = self.value[state]
                 new_v = self.update_value(state)
                 delta = max(delta, abs(val - new_v))
     
 
-    def transform(self):
-        """Find the optimal policy"""
-        policy_stable = False
-        
-        while not policy_stable:
-            self.evaluate_policy()
-            policy_stable = self.improve_policy()
+    def improve_policy(self):
+        """
+        Improve the existing policy by greedifying in respect to the
+            current value estimates v_k(s)
+        If π(a|s) does not change means we converaged to the optimal policy π*
+        """
+        policy_stable = True
+        for state in self.env.S:
+            old = self.policy[state].copy()
+            self.q_greedify_policy(state)
+            
+            if not np.array_equal(self.policy[state], old):
+                policy_stable = False
+                
+        return policy_stable
     
 
 class ValueIteration(PolicyIteration):
@@ -215,40 +216,50 @@ class ValueIteration(PolicyIteration):
 
 
 class MCIteration(GPI):
-    def fit(self, env, value, policy, gamma):
+    def fit(self, env, value, policy, gamma, epsilon=0.01, qvalue=None):
         super().fit(env, value, policy, gamma)
-        self.state_counts = {k:0 for k in self.env.S}
+        
+        self.epsilon = epsilon
+        self.sa_counts = {k:0 for k in product(self.env.S, self.env.A)}
+        
+        # the action-value table
+        self.qvalue = \
+            {k:0 for k in product(self.env.S, self.env.A)} \
+            if qvalue is None else qvalue
 
     def transform(self, iter=1000):
         for _ in tqdm(range(iter)):
-            self.evaluate_policy()
+            updated_states = self.evaluate_policy()
+            for state in updated_states:
+                self.q_greedify_policy(state)
 
     def evaluate_policy(self):
+        states = []
         ret = 0
         episode = self.get_episode()
         for step in range(episode['steps']-1, -1, -1):
             state = episode['state'][step]
-            # action = episode['action'][step]
+            action = episode['action'][step]
             ret = self.gamma * ret + episode['reward'][step]
-            self.update_value(state, ret)
+            self.update_value(state, action, ret)
+            states.append(state)
+        return states
     
     
-    def update_value(self, state, new_val):
-        step_size = self.state_counts[state]
+    def update_value(self, state, action, new_val):
+        step_size = self.sa_counts[(state, action)]
         step_size += 1
 
-        old_val = self.value.loc[state]
-        self.value.loc[state] += 1/step_size * (new_val - old_val)
-        self.state_counts[state] = step_size
+        old_val = self.qvalue[(state, action)]
+        self.qvalue[(state, action)] += 1/step_size * (new_val - old_val)
+        self.sa_counts[(state, action)] = step_size
     
 
     def get_episode(self):
         trace = {'steps': 0, 'state': [], 'action': [], 'reward': []}
-
         s0 = self.env.start()
-        # s0 = np.random.choice(self.env.S)
         while not self.env.is_terminal():
-            a = np.random.choice(self.env.A, p=self.policy.loc[s0])
+            a = np.random.choice(self.env.A, p=self.policy[s0])
             s1, r = self.env.step(a)
             trace['state'].append(s0)
             trace['action'].append(a)
@@ -263,4 +274,28 @@ class MCIteration(GPI):
         MC is model-free method
         does not need the complete transition env probability
         """
-        pass
+        selected = []
+        for action in self.env.A:
+            selected.append(self.qvalue[(state, action)])
+        return selected
+
+
+    def q_greedify_policy(self, state):
+        """
+        Mutate the policy to be greedy with respect to the q-values
+            induced by the existing value function
+        """
+        # here ignores the floating error belows theta threshold
+        q_sa = np.round(self.get_qvalues(state), self.sig_digits)
+        max_q = np.max(q_sa)
+
+        nA = len(self.env.A)
+        eps = self.epsilon
+        new_pi_s = []
+        for q in q_sa:
+            if q == max_q:
+                new_pi_s.append(1 - eps + eps/nA)
+            else:
+                new_pi_s.append(eps/nA)
+        new_pi_s = np.divide(new_pi_s, np.sum(new_pi_s))
+        self.policy[state] = new_pi_s
