@@ -12,7 +12,7 @@ AgentState = namedtuple('State', ['num_steps', 'q_values', 'action_count', 'last
 
 class FiniteActionAgent:
     """
-    Toy RL Agent that is based a finite set of action space
+    Abstract RL Agent with Finite Action space
 
     parameters
     ----------

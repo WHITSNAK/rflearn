@@ -192,7 +192,7 @@ class BlackJack(FiniteMDPENV):
 
     def hit(self):
         if not self.in_play:
-            return
+            return 0
 
         self.player_hand.add_card(self.deck.deal_card())
         
@@ -212,7 +212,7 @@ class BlackJack(FiniteMDPENV):
         
     def stand(self):
         if not self.in_play:
-            return
+            return 0
         
         if self.debug:
             print('Dealer is drawing cards')

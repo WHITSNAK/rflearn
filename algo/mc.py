@@ -8,7 +8,7 @@ from itertools import product
 from .base import GPI
 
 
-class MCIteration(GPI):
+class MCEpsilonSoft(GPI):
     """
     Monte Carlo Policy Interation Algorithm
     - with ϵ-soft policy support
@@ -31,9 +31,9 @@ class MCIteration(GPI):
     def transform(self, iter=1000):
         """Obtain the optimal policy"""
         for _ in tqdm(range(iter)):
+            self.last_updated_s = []  # reset updated stated
             self.evaluate_policy()
             self.improve_policy()
-            self.last_updated_s = []  # reset updated stated
 
     def evaluate_policy(self):
         """Update q(a|s) with newly generated MC episode"""
@@ -94,7 +94,6 @@ class MCIteration(GPI):
             trace['steps'] += 1
             s0 = s1
         return trace
-
 
     def get_qs(self, state):
         """
