@@ -25,3 +25,13 @@ def argmax(values):
             ties.append(i)  # multiple ties
         
     return np.random.choice(ties)
+
+
+def zero_values(env):
+    """Returns value function [1xS] with zero values"""
+    return np.zeros(shape=len(env.S))
+
+
+def random_policy(env):
+    """return policy [SxA] with uniform random probability π(a|S=s) of each action"""
+    return np.ones(shape=(len(env.S), len(env.A))) / len(env.A)

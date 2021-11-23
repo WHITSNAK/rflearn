@@ -5,13 +5,55 @@ using monte carlo based method, model-free
 import numpy as np
 from tqdm import tqdm
 from itertools import product
+from collections import namedtuple
+from rflearn.utils import argmax
 from .base import GPI
+
+
+EpisodeStep = namedtuple('EpisodeStep', ['s0','a0','r1','s1','is_terminal'])
+
+class Episode:
+    """Simple episode tracking class"""
+    def __init__(self):
+        self.nsteps = 0
+        self.steps = []
+    
+    def __iter__(self):
+        for step in self.steps:
+            yield step
+    
+    def __getitem__(self, idx):
+        return self.steps[idx]
+        
+    def __repr__(self):
+        main_str = f'Episode<n:{self.nsteps}>'
+        for step in self:
+            main_str += '\n'+' '*4 + str(step)
+        return main_str
+
+    def add_step(self, s0, a0, r1, s1, is_terminal):
+        self.nsteps += 1
+        step = EpisodeStep(s0, a0, r1, s1, is_terminal)
+        self.steps.append(step)
 
 
 class MCEpsilonSoft(GPI):
     """
     Monte Carlo Policy Interation Algorithm
     - with ϵ-soft policy support
+
+    int parameter
+    -------------
+    env: the enviornment
+    value: [1 x S], init expected value for all states in a row vector
+    policy: [S x A], stochastic policy for all states map to action
+    qvalue: [S x A], init expected value for all state-action pair in a matrix
+
+    fit parameter
+    -------------
+    gamma: float, the reward discount rate
+    epsilon: float, the epsilon greedy soft rate
+    kbath: int, the number of episode in a batch to process in each policy evaluation
     """
     def __init__(self, env, value, policy, qvalue=None):
         super().__init__(env, value, policy)
@@ -19,11 +61,13 @@ class MCEpsilonSoft(GPI):
         self.qvalue = \
             {k:0 for k in product(env.S, env.A)} \
             if qvalue is None else qvalue
+        self.hist = {'avg_r': []}
 
-    def fit(self, gamma, epsilon=0.01):
+    def fit(self, gamma, epsilon=0.01, kbatch=30):
         """Setting the algorithm"""
         self.gamma = gamma
         self.epsilon = epsilon
+        self.kbatch = kbatch
         self.last_updated_s = []
         # state-action pair seen counts for step size inferring
         self.sa_counts = {k:0 for k in product(self.env.S, self.env.A)}
@@ -37,24 +81,38 @@ class MCEpsilonSoft(GPI):
 
     def evaluate_policy(self):
         """Update q(a|s) with newly generated MC episode"""
-        ret = 0
-        episode = self.get_episode()
-        for step in range(episode['steps']-1, -1, -1):
-            state = episode['state'][step]
-            action = episode['action'][step]
-            sa = state, action  # tuple pair
-            ret = self.gamma * ret + episode['reward'][step]
+        # construct returns for each (s,a) pair
+        epso_lst = self.get_episodes(n=self.kbatch)
+        avg_r = 0
+        qs = {}
+        for epso in epso_lst:
+            avg_r += sum(step.r1 for step in epso)
+            ret = 0
+            for step in epso[::-1]:  # start from the terminal step
+                sa = step.s0, step.a0  # tuple pair
+                ret = self.gamma * ret + step.r1
+                if sa not in qs:
+                    qs[sa] = [ret]
+                else:
+                    qs[sa].append(ret)
+        
+        avg_r /= self.kbatch
 
+        # each (s,a) only updates once within a batch
+        for sa, rets in qs.items():
             # update q(a|s) with given new information
             step_size = self.sa_counts[sa]
             step_size += 1
 
             old_ret = self.qvalue[sa]
+            ret = np.mean(rets)
             self.qvalue[sa] += 1/step_size * (ret - old_ret)
             self.sa_counts[sa] = step_size
 
             # update seem states
-            self.last_updated_s.append(state)
+            self.last_updated_s.append(step.s0)
+        
+        self.hist['avg_r'].append(avg_r)
     
     def improve_policy(self):
         """
@@ -63,37 +121,36 @@ class MCEpsilonSoft(GPI):
             with ϵ-soft policy to ensure exploration in Monte Carlo
         """
         for state in self.last_updated_s:
-            # here ignores the floating error belows theta threshold
-            qs = self.get_qs(state)
+            qs = np.array(self.get_qs(state))
             max_q = np.max(qs)
 
             # epsilon soft policy
             nA = len(self.env.A)
             ϵ = self.epsilon
-            new_π = []
-            for q in qs:
-                if q == max_q:
-                    new_π.append(1 - ϵ + ϵ/nA)
-                else:
-                    new_π.append(ϵ/nA)
+            max_flag = (qs==max_q)
 
-            # normalize to ∑π = 1
-            new_π = np.divide(new_π, np.sum(new_π))
+            # in respect to bellman optimal equation q*
+            new_π = max_flag * (1 - ϵ + ϵ/nA) + ~max_flag * ϵ/nA
+            new_π = new_π / np.sum(new_π).sum()  # normalize ∑π(a|s) = 1
             self.policy[state] = new_π
 
-    def get_episode(self):
+    def get_episodes(self, n=1):
         """Generate a episode of data through Monte Carlo"""
-        trace = {'steps': 0, 'state': [], 'action': [], 'reward': []}
-        s0 = self.env.start()
-        while not self.env.is_terminal():
-            a = np.random.choice(self.env.A, p=self.policy[s0])
-            s1, r = self.env.step(a)
-            trace['state'].append(s0)
-            trace['action'].append(a)
-            trace['reward'].append(r)
-            trace['steps'] += 1
-            s0 = s1
-        return trace
+        epso_lst = []
+        for _ in range(n):
+            epso = Episode()
+            s0 = self.env.start()
+            while True:
+                a = np.random.choice(self.env.A, p=self.policy[s0])
+                s1, r = self.env.step(a)
+                is_t = self.env.is_terminal()
+                epso.add_step(s0, a, r, s1, is_t)
+                s0 = s1
+
+                if is_t:
+                    break
+            epso_lst.append(epso)
+        return epso_lst
 
     def get_qs(self, state):
         """
