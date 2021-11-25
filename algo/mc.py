@@ -6,7 +6,6 @@ import numpy as np
 from tqdm import tqdm
 from itertools import product
 from collections import namedtuple
-from rflearn.utils import argmax
 from .base import GPI
 
 
@@ -53,6 +52,7 @@ class MCEpsilonSoft(GPI):
     -------------
     gamma: float, the reward discount rate
     epsilon: float, the epsilon greedy soft rate
+    lam: float, the learning rate
     kbath: int, the number of episode in a batch to process in each policy evaluation
     """
     def __init__(self, env, value, policy, qvalue=None):
@@ -61,17 +61,21 @@ class MCEpsilonSoft(GPI):
         self.qvalue = \
             {k:0 for k in product(env.S, env.A)} \
             if qvalue is None else qvalue
-        self.hist = {'avg_r': []}
-
-    def fit(self, gamma, epsilon=0.01, kbatch=30):
+        
+    def fit(self, gamma, epsilon=0.01, lam=0.2, kbatch=30):
         """Setting the algorithm"""
         self.gamma = gamma
         self.epsilon = epsilon
         self.kbatch = kbatch
+        self.lam = lam
+
+        # list used for targeted state-action policy improvment
         self.last_updated_s = []
         # state-action pair seen counts for step size inferring
         self.sa_counts = {k:0 for k in product(self.env.S, self.env.A)}
-        
+        self.hist = {'avg_r': []}
+
+
     def transform(self, iter=1000):
         """Obtain the optimal policy"""
         for _ in tqdm(range(iter)):
@@ -101,16 +105,19 @@ class MCEpsilonSoft(GPI):
         # each (s,a) only updates once within a batch
         for sa, rets in qs.items():
             # update q(a|s) with given new information
-            step_size = self.sa_counts[sa]
-            step_size += 1
+            if not self.lam:
+                step_size = self.sa_counts[sa] + 1
+                step_size += 1
+                self.sa_counts[sa] = step_size
+            else:
+                step_size = 1/self.lam
 
             old_ret = self.qvalue[sa]
             ret = np.mean(rets)
             self.qvalue[sa] += 1/step_size * (ret - old_ret)
-            self.sa_counts[sa] = step_size
 
             # update seem states
-            self.last_updated_s.append(step.s0)
+            self.last_updated_s.append(sa[0])
         
         self.hist['avg_r'].append(avg_r)
     
@@ -135,7 +142,7 @@ class MCEpsilonSoft(GPI):
             self.policy[state] = new_π
 
     def get_episodes(self, n=1):
-        """Generate a episode of data through Monte Carlo"""
+        """Generate n episodes of data through Monte Carlo"""
         epso_lst = []
         for _ in range(n):
             epso = Episode()

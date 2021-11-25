@@ -160,3 +160,47 @@ class GridWorld(FiniteMDPENV):
             self._get_new_state(state, self._get_move(move))
             for move in self.A
         ]
+
+
+
+class WindGridWorld(GridWorld):
+    pass
+
+
+
+class CliffGridWorld(GridWorld):
+    def __init__(self, nrow, ncol):
+        super().__init__(nrow, ncol, grid=None, terminals=None)
+
+        # set up cliff
+        for col in range(1, ncol-1):
+            self.grid[nrow-1][col] = 1
+        
+        # set up starting and terminal stats
+        self.s0 = None
+        self.terminals = [ncol*(nrow-1)+(ncol-1)]
+    
+    def start(self):
+        self.s0 = self.ncol * (self.nrow-1)
+        return self.s0
+
+    def is_cliff(self, state):
+        """check whether is on a cliff"""
+        i, j = self._to_square(state)
+        return self.grid[i][j] == 1
+
+    def _get_reward(self, state):
+        """Get the reward | state"""
+        r = super()._get_reward(state)
+        if r == -10:
+            r = -100
+        return r
+
+    def _get_new_state(self, state, move):
+        """Move from the given state"""
+        if self.is_cliff(state):
+            # fall off the cliff, back to the starting point
+            new_state = self.ncol * (self.nrow-1)
+        else:
+            new_state = super()._get_new_state(state, move)
+        return new_state
