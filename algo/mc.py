@@ -40,6 +40,7 @@ class MCEpsilonSoft(GPI):
     """
     Monte Carlo Policy Interation Algorithm
     - with ϵ-soft policy support
+    - Monte Carlo only works on episodic tasks
 
     int parameter
     -------------
@@ -62,12 +63,13 @@ class MCEpsilonSoft(GPI):
             {k:0 for k in product(env.S, env.A)} \
             if qvalue is None else qvalue
         
-    def fit(self, gamma, epsilon=0.01, lam=0.2, kbatch=30):
+    def fit(self, gamma, epsilon=0.01, lam=0.2, kbatch=30, max_steps=100):
         """Setting the algorithm"""
         self.gamma = gamma
         self.epsilon = epsilon
-        self.kbatch = kbatch
         self.lam = lam
+        self.kbatch = kbatch
+        self.max_steps = max_steps
 
         # list used for targeted state-action policy improvment
         self.last_updated_s = []
@@ -147,6 +149,7 @@ class MCEpsilonSoft(GPI):
         for _ in range(n):
             epso = Episode()
             s0 = self.env.start()
+            i = 0
             while True:
                 a = np.random.choice(self.env.A, p=self.policy[s0])
                 s1, r = self.env.step(a)
@@ -154,8 +157,11 @@ class MCEpsilonSoft(GPI):
                 epso.add_step(s0, a, r, s1, is_t)
                 s0 = s1
 
-                if is_t:
+                # fully stop or early stop
+                i += 1
+                if is_t or i >= self.max_steps:
                     break
+
             epso_lst.append(epso)
         return epso_lst
 
