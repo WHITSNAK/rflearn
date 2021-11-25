@@ -164,11 +164,65 @@ class GridWorld(FiniteMDPENV):
 
 
 class WindGridWorld(GridWorld):
-    pass
+    """
+    2D Grid World Enviornment with a tail wind coming from the bottom
+    - fixed grid size
+    - always start at square [3, 0] and terminate at square [3, 7]
+    - -1 reward for every step
+    - wind would push you up while you move
+
+    Avaliable actions: {up, down, left, right}
+    Avaliable states: {0, 1, ...., nrow * ncol -1}
+    System transition: visible
+    """
+    def __init__(self):
+        super().__init__(nrow=7, ncol=10, grid=None, terminals=None)
+        self.wind = [0, 0, 0, 1, 1, 1, 2, 2, 1, 0]
+        self.terminals = [37]
+        self.s0 = None
+    
+    def __repr__(self):
+        string = ''
+        for row in self.grid:
+            string += str(row) + '\n'
+        string += '-' * len(str(row)) + '\n'
+        string += str(self.wind) 
+        return string
+
+    def start(self):
+        self.s0 = 3 * self.ncol
+        return self.s0
+
+    def _get_new_state(self, state, move):
+        """Move from the given state"""
+        row, col = self._to_square(state)
+        wind = self.wind[col]
+        _row = min(max(row + move[0] - wind, 0), self.nrow-1)
+        _col = min(max(col + move[1], 0), self.ncol-1)
+        new_state = self._to_state(_row, _col)
+        return new_state
 
 
 
 class CliffGridWorld(GridWorld):
+    """
+    2D Grid World Enviornment with a long cliff on the botton row
+    - if the grid value is 0, it has -1 reward
+    - if the grid value is 1 (cliff), it has -100 reward
+    - falling off the cliff send you back to the start square
+    - always start at the bottom left corner
+    - terminal state is at the bottom right corner
+
+    Avaliable actions: {up, down, left, right}
+    Avaliable states: {0, 1, ...., nrow * ncol -1}
+    System transition: visible
+
+    parameter
+    ---------
+    nrow, ncol: int, the two dimensions of the grid
+    grid: list of list, the actual 2D grid with 0/1 values
+        it will replace nrow, ncol if this is given
+    """
     def __init__(self, nrow, ncol):
         super().__init__(nrow, ncol, grid=None, terminals=None)
 
@@ -178,7 +232,7 @@ class CliffGridWorld(GridWorld):
         
         # set up starting and terminal stats
         self.s0 = None
-        self.terminals = [ncol*(nrow-1)+(ncol-1)]
+        self.terminals = [ncol*nrow-1]
     
     def start(self):
         self.s0 = self.ncol * (self.nrow-1)
@@ -193,7 +247,7 @@ class CliffGridWorld(GridWorld):
         """Get the reward | state"""
         r = super()._get_reward(state)
         if r == -10:
-            r = -100
+            r = -100  # fall off the cliff
         return r
 
     def _get_new_state(self, state, move):

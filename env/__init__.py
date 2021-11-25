@@ -1,2 +1,2 @@
-from .gridworld import GridWorld, CliffGridWorld
+from .gridworld import GridWorld, CliffGridWorld, WindGridWorld
 from .blackjack import BlackJack
