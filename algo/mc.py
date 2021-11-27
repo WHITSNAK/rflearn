@@ -48,6 +48,7 @@ class MCEpsilonSoft(GPI):
     value: [1 x S], init expected value for all states in a row vector
     policy: [S x A], stochastic policy for all states map to action
     qvalue: [S x A], init expected value for all state-action pair in a matrix
+    pbar_leave: bool, flag to control tqdm progress bar on whether leaveing the end results on screen
 
     fit parameter
     -------------
@@ -56,7 +57,7 @@ class MCEpsilonSoft(GPI):
     lam: float (default None), the learning rate
         - None, would use same average method instead 
     kbath: int, the number of episode in a batch to process in each policy evaluation
-    pbar_leavel: bool, flag to control tqdm progress bar on whether leaveing the end results on screen
+    max_steps: int (default None), max steps on taking a episode for early stopping if too long
     """
     def __init__(self, env, value, policy, qvalue=None, pbar_leave=True):
         super().__init__(env, value, policy)
@@ -66,7 +67,7 @@ class MCEpsilonSoft(GPI):
             {k:0 for k in product(env.S, env.A)} \
             if qvalue is None else qvalue
         
-    def fit(self, gamma=1, epsilon=0.01, lam=None, kbatch=30, max_steps=100):
+    def fit(self, gamma=1, epsilon=0.01, lam=None, kbatch=30, max_steps=None):
         """Setting the algorithm"""
         self.gamma = gamma
         self.epsilon = epsilon
@@ -82,9 +83,9 @@ class MCEpsilonSoft(GPI):
 
     def transform(self, iter=1000):
         """Obtain the optimal policy"""
-        for _ in tqdm(range(iter), leave=self.pbar_leave):
+        for _ in tqdm(range(iter)):
             self.last_updated_s = []  # reset updated stated
-            self.evaluate_policy()
+            avg_r = self.evaluate_policy()
             self.improve_policy()
 
     def evaluate_policy(self):
@@ -124,6 +125,7 @@ class MCEpsilonSoft(GPI):
             self.last_updated_s.append(sa[0])
         
         self.hist['avg_r'].append(avg_r)
+        return avg_r
     
     def improve_policy(self):
         """
@@ -140,6 +142,7 @@ class MCEpsilonSoft(GPI):
             ϵ = self.epsilon
             max_flag = (qs==max_q)
 
+            # TODO: old vs new policy stable? i don't think it works on MC
             # in respect to bellman optimal equation q*
             new_π = max_flag * (1 - ϵ + ϵ/nA) + ~max_flag * ϵ/nA
             new_π = new_π / np.sum(new_π).sum()  # normalize ∑π(a|s) = 1
@@ -161,7 +164,7 @@ class MCEpsilonSoft(GPI):
 
                 # fully stop or early stop
                 i += 1
-                if is_t or i >= self.max_steps:
+                if is_t or (self.max_steps is not None and i >= self.max_steps):
                     break
 
             epso_lst.append(epso)
@@ -170,7 +173,8 @@ class MCEpsilonSoft(GPI):
     def get_qs(self, state):
         """
         MC is model-free method
-        does not need the complete transition env probability
+        - does not need the complete transition env probability
+        - it ensures ordering by a ∈ A in the list
         """
         selected = []
         for action in self.env.A:
