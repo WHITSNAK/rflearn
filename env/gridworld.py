@@ -166,7 +166,7 @@ class GridWorld(FiniteMDPENV):
 class WindGridWorld(GridWorld):
     """
     2D Grid World Enviornment with a tail wind coming from the bottom
-    - fixed grid size
+    - fixed grid size [7 x 10]
     - always start at square [3, 0] and terminate at square [3, 7]
     - -1 reward for every step
     - wind would push you up while you move

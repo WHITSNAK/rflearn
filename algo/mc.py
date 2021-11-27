@@ -53,17 +53,20 @@ class MCEpsilonSoft(GPI):
     -------------
     gamma: float, the reward discount rate
     epsilon: float, the epsilon greedy soft rate
-    lam: float, the learning rate
+    lam: float (default None), the learning rate
+        - None, would use same average method instead 
     kbath: int, the number of episode in a batch to process in each policy evaluation
+    pbar_leavel: bool, flag to control tqdm progress bar on whether leaveing the end results on screen
     """
-    def __init__(self, env, value, policy, qvalue=None):
+    def __init__(self, env, value, policy, qvalue=None, pbar_leave=True):
         super().__init__(env, value, policy)
+        self.pbar_leave = pbar_leave
         # the action-value function/table
         self.qvalue = \
             {k:0 for k in product(env.S, env.A)} \
             if qvalue is None else qvalue
         
-    def fit(self, gamma, epsilon=0.01, lam=0.2, kbatch=30, max_steps=100):
+    def fit(self, gamma=1, epsilon=0.01, lam=None, kbatch=30, max_steps=100):
         """Setting the algorithm"""
         self.gamma = gamma
         self.epsilon = epsilon
@@ -77,10 +80,9 @@ class MCEpsilonSoft(GPI):
         self.sa_counts = {k:0 for k in product(self.env.S, self.env.A)}
         self.hist = {'avg_r': []}
 
-
     def transform(self, iter=1000):
         """Obtain the optimal policy"""
-        for _ in tqdm(range(iter)):
+        for _ in tqdm(range(iter), leave=self.pbar_leave):
             self.last_updated_s = []  # reset updated stated
             self.evaluate_policy()
             self.improve_policy()
