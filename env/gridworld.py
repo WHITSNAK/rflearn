@@ -228,7 +228,7 @@ class WindGridWorld(GridWorld):
     def __init__(self):
         super().__init__(nrow=7, ncol=10, grid=None, terminals=[37])
         self.wind = [0, 0, 0, 1, 1, 1, 2, 2, 1, 0]
-        self.s0 = None
+        self.s0 = 3 * self.ncol  # fixed starting and terminals
     
     def __repr__(self):
         string = super().__repr__()
@@ -237,6 +237,7 @@ class WindGridWorld(GridWorld):
         return string
 
     def start(self):
+        """Reset back to starting state"""
         self.s0 = 3 * self.ncol
         return self.s0
 
@@ -277,11 +278,12 @@ class CliffGridWorld(GridWorld):
         for col in range(1, ncol-1):
             self.grid[nrow-1][col] = 1
         
-        # set up starting and terminal stats
-        self.s0 = None
+        # set up starting and terminal stats, fixed locations
+        self.s0 = self.ncol * (self.nrow-1)
         self.terminals = [ncol*nrow-1]
     
     def start(self):
+        """Reset back to starting state"""
         self.s0 = self.ncol * (self.nrow-1)
         return self.s0
 
