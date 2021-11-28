@@ -26,13 +26,13 @@ class MultiArmBandit(FiniteMDPENV):
         self.nbandits = nbandits
         self.moving_target = moving_target
 
-        self._actions = np.arange(nbandits)
+        self._actions = list(range(nbandits))
         self._mu = 0
         self._sigma = 1
         self._truth = normal(
             loc=self._mu, scale=self._sigma, size=self.nbandits
         )
-        self.s0 = None
+        self.s0 = 0  # fixed state, no variation
     
     @property
     def A(self):
@@ -40,16 +40,15 @@ class MultiArmBandit(FiniteMDPENV):
     
     @property
     def S(self):
-        return [0]
+        return [self.s0]
     
     def start(self):
         """start the env"""
-        self.s0 = 0
         return self.s0
     
     def step(self, action):
         """take one step, action"""
-        reward = normal(loc=self._truth[action], scale=self._sigma)
+        reward = self._get_reward(action)
         if self.moving_target:
             self._truth += normal(self._mu, self._sigma/10, size=self.nbandits)
         return self.s0, reward
@@ -57,10 +56,14 @@ class MultiArmBandit(FiniteMDPENV):
     def transitions(self, state, action):
         """the full system transition p(r, s'|s, a)"""
         trans = np.zeros(shape=(len(self.S), 2))
-        reward = 0
+        reward = self._get_reward(action)
         trans[self.s0] = (reward, 1)
         return trans
 
     def is_terminal(self):
         """never terminates, it is continuous"""
         return False
+
+    def _get_reward(self, action):
+        return normal(loc=self._truth[action], scale=self._sigma)
+    

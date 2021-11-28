@@ -85,7 +85,7 @@ def wgrid():
 
 def test_wgrid_init(wgrid):
     env = wgrid
-    assert env.s0 is None
+    assert env.s0 == 30
     s0 = env.start()
     assert s0 == 30  # fixed starting point
     assert env.terminals == [37]  # one terminal
@@ -121,7 +121,7 @@ def cgrid_s():
 
 def test_cgrid_init(cgrid_s):
     env = cgrid_s
-    assert env.s0 is None
+    assert env.s0 == 8
     s0 = env.start()
     assert s0 == 8
     assert env.terminals == [11]
