@@ -2,6 +2,7 @@
 Module that hosts all Agent Environments
 """
 import numpy as np
+import seaborn as sns
 from itertools import product
 from .base import FiniteMDPENV
 
@@ -51,6 +52,12 @@ class GridWorld(FiniteMDPENV):
     def __iter__(self):
         for cell in product(range(self.nrow), range(self.ncol)):
             yield cell
+    
+    def __repr__(self):
+        string = ''
+        for row in self.grid:
+            string += str(row) + '\n'
+        return string
     
     @property
     def A(self):
@@ -160,6 +167,47 @@ class GridWorld(FiniteMDPENV):
             self._get_new_state(state, self._get_move(move))
             for move in self.A
         ]
+    
+    def plot_grid(self, kind='st'):
+        """
+        Visualize the grid layout
+
+        parameter
+        ---------
+        kind: {'st', 'state', 'cell'}, the type of annotation on the grid
+            - 'st': shows start and terminal cells
+            - 'state': shows numeric(state) value of each cell
+            - 'cell': the cell value in the grid
+        """
+        ax = sns.heatmap(
+            self.grid, center=0, square=True,
+            cmap='crest', linewidths=0.5, cbar=False
+        )
+
+        txt_fmt = {'horizontalalignment': 'center', 'verticalalignment': 'center', 'c': 'white'}
+        annots = []
+        if kind == 'st':  # start & temrinals
+            if self.s0:  # some does not have fixed starting points
+                loc = self._to_square(self.s0)
+                annots.append((loc[1]+0.5, loc[0]+0.5, 'S'))
+            
+            for term_s in self.terminals:  # some have multiple terminal states
+                loc = self._to_square(term_s)
+                annots.append((loc[1]+0.5, loc[0]+0.5, 'T'))
+
+        elif kind == 'state':  # numerical states
+            for (row_i, col_j), num in zip(list(self), self.S):
+                annots.append((col_j+0.5, row_i+0.5, str(int(num))))
+        
+        elif kind == 'cell':  # straight forward cell values
+            for row_i, col_j in list(self):
+                annots.append((col_j+0.5, row_i+0.5, str(int(self.grid[row_i][col_j]))))
+
+        # plot 
+        for annot in annots:
+            ax.text(*annot, **txt_fmt)
+
+        return ax
 
 
 
@@ -176,16 +224,13 @@ class WindGridWorld(GridWorld):
     System transition: visible
     """
     def __init__(self):
-        super().__init__(nrow=7, ncol=10, grid=None, terminals=None)
+        super().__init__(nrow=7, ncol=10, grid=None, terminals=[37])
         self.wind = [0, 0, 0, 1, 1, 1, 2, 2, 1, 0]
-        self.terminals = [37]
         self.s0 = None
     
     def __repr__(self):
-        string = ''
-        for row in self.grid:
-            string += str(row) + '\n'
-        string += '-' * len(str(row)) + '\n'
+        string = super().__repr__()
+        string += '-' * len(self.wind) + '\n'
         string += str(self.wind) 
         return string
 
