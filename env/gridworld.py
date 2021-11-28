@@ -168,7 +168,7 @@ class GridWorld(FiniteMDPENV):
             for move in self.A
         ]
     
-    def plot_grid(self, kind='st'):
+    def plot_grid(self, kind='st', **heatmap_kwargs):
         """
         Visualize the grid layout
 
@@ -178,10 +178,12 @@ class GridWorld(FiniteMDPENV):
             - 'st': shows start and terminal cells
             - 'state': shows numeric(state) value of each cell
             - 'cell': the cell value in the grid
+        heatmap_kwargs: keyword arguments for seaborn heatmap
+            see: https://seaborn.pydata.org/generated/seaborn.heatmap.html#seaborn.heatmap
         """
         ax = sns.heatmap(
             self.grid, center=0, square=True,
-            cmap='crest', linewidths=0.5, cbar=False
+            cmap='crest', linewidths=0.5, cbar=False, **heatmap_kwargs
         )
 
         txt_fmt = {'horizontalalignment': 'center', 'verticalalignment': 'center', 'c': 'white'}
