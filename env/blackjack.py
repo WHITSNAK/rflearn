@@ -2,17 +2,28 @@
 Blackjack Enviornment
 """
 import random
+from itertools import product
+from collections import namedtuple
 from .base import FiniteMDPENV
 
 
-# define globals for cards
 SUITS = ('C', 'S', 'H', 'D')
 RANKS = ('A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K')
 VALUES = {'A':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, 'T':10, 'J':10, 'Q':10, 'K':10}
+BJS = namedtuple('BJState', ['ace', 'pv', 'fdv'])
 
 
-# define card class
 class Card:
+    """
+    Simple class that represents a card in poker
+
+    parameter
+    ---------
+    suit: str, the suit of the card
+        {'C', 'S', 'H', 'D'}
+    rank: str, the rank of the card
+        {'A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K'}
+    """
     def __init__(self, suit, rank):
         if (suit in SUITS) and (rank in RANKS):
             self.suit = suit
@@ -33,55 +44,59 @@ class Card:
         return self.rank
         
         
-# define hand class
 class Hand:
+    """
+    Simple class that represents a player's hand in BlackJack
+        - it can contains arbitary number of cards
+        - it also has some nice methods to work with BlackJack
+    """
     def __init__(self):
         self.cards = []
         self.has_ace = False
+        self.nomial_value = 0
 
     def __str__(self):
         card_str = ' '.join([c.__str__() for c in self.cards])
-        return 'Hand contains %s' % card_str
+        ace_str = 'T' if self.has_ace else 'F'
+        return f'Hand[A:{ace_str} V:{self.nomial_value}] <{card_str}>'
     
     def add_card(self, card):
+        """Update state with new card"""
         self.cards.append(card)
-        if card.get_rank() == 'A':
+
+        c_rank = card.get_rank()
+        self.nomial_value += VALUES[c_rank]
+
+        if c_rank == 'A':
             self.has_ace = True
     
-    def get_card_value(self, card):
-        return VALUES[card.get_rank()]
-    
-    def get_nomial_value(self):
-        v = 0
-        for c in self.cards:
-            v += self.get_card_value(c)
-        return v
-
-    def get_value(self):
-        # count aces as 1, if the hand has an ace, then add 10 to hand value if it doesn't bust
-        v = self.get_nomial_value()
-            
-        if self.has_ace and v+10 <= 21:
-            v += 10
-        return v
-    
     def usable_ace(self):
+        """Flag for showing whether the hand has an usable ace"""
         if not self.has_ace:
             return False
 
-        v = self.get_nomial_value()
-
-        if v+10 <= 21:
+        if self.nomial_value + 10 <= 21:
             return True
         return False
     
+    def get_value(self):
+        """Get the actual value that takes in account of useable ace"""
+        # count aces as 1, if the hand has an ace
+        # then add 10 to hand value if it doesn't bust
+        val = self.nomial_value
+        if self.usable_ace():
+            val += 10
+        return val
+
     def is_busted(self):
+        """Busted flag"""
         return self.get_value() > 21
  
         
-# define deck class 
 class Deck:
+    """Represents a deck of card"""
     def __init__(self):
+        # generate a 52 cards deck list
         cards = []
         for suit in SUITS:
             for rank in RANKS:
@@ -89,93 +104,109 @@ class Deck:
                 
         self.cards = cards
 
+    def __str__(self):
+        string = ' '.join([c.__str__() for c in self.cards])
+        return f'Deck<{string}>'
+
     def shuffle(self):
         random.shuffle(self.cards)
 
     def deal_card(self):
         return self.cards.pop()
-    
-    def __str__(self):
-        s = ' '.join([c.__str__() for c in self.cards])
-        return 'Deck contains %s' % s
 
 
-def blackjack_states():
-    states = []
-    for has_ace in [True, False]:
-        for player_v in range(12, 22):
-            for dealer_v in range(1, 11):
-                states.append((has_ace, player_v, dealer_v))
-    return states
 
 class BlackJack(FiniteMDPENV):
-    SMAPPER = {s:i for i, s in enumerate(blackjack_states())}
-    NMAPPER = {i:s for s, i in SMAPPER.items()}
+    """
+    BlackJack Game Simulator with reduced state support
+    - win the game with larger hand than the dealer
+    - at the same time do not go busted, value > 21
+    - winning reward = 1, lossing reward = -1, draw = 0
 
-    def __init__(self, debug=False):
-        self.debug = debug
+    Avaliable actions: {hit, stand}
+    Avaliable states: {0, 1, ...., 199}
+        - In total 200 states as follow
+        - Whether player has usable Ace or not [x2], *ace*
+        - Player always deal when hand is <= 11, max card is 10
+          thus {12, 13, ..., 21} [x10], *pv*
+        - Only the first card dealer has is visible
+          thus {1, 2, 3, ..., 10} in nominal value [x10], *fdv*
+    System transition: invisible
+    """
+    def __init__(self):
         self.score = 0
         self.reset()
     
     def reset(self):
         self.in_play = False
-        self.outcome = "game outcome"
         self.deck = None
         self.dealer_hand = None
         self.player_hand = None
+        self.s0 = None
     
+    def __iter__(self):
+        """All generator of internal states"""
+        gen = product(
+            [True, False],
+            range(12, 21+1),
+            range(1, 10+1),
+        )
+        for state in gen:
+            yield BJS(*state)
+
     @property
     def A(self):
         return ['hit', 'stand']
 
     @property
     def S(self):
-        return list(range(200))
+        return list(self._get_state(nstate) for nstate in self)
     
     def start(self):
-        self.deal()
-        return self.get_state()
-    
-    def is_terminal(self):
-        return not self.in_play
+        """Start the game fresh"""
+        self._deal()
+        nstate = self._get_nominal_state()
+        self.s0 = self._get_state(nstate)
+        return self.s0
 
     def step(self, action):
-        if action == 'hit':
-            reward = self.hit()
-        elif action == 'stand':
-            reward = self.stand()
-        return self.get_state(), reward
+        """Take action/step forward"""
+        reward = self.__getattribute__('_'+action)()
+        nstate = self._get_nominal_state()
+        self.s0 = self._get_state(nstate)
+        return self.s0, reward
     
-    def get_state(self):
+    def is_terminal(self):
+        """Terminal state flag"""
+        return not self.in_play
+    
+    def _get_state(self, nstate):
+        """Internal hand to state mapper"""
         cnt = 0
-        if not self.player_hand.usable_ace():
+        if not nstate.ace:
             cnt += 100
-        
-        pv = self.player_hand.get_value()
-        fdv = self.dealer_hand.get_card_value(self.dealer_hand.cards[0])
-        cnt += (pv-12) * 10 + (fdv-1+1) - 1
+        pv, fdv = nstate.pv, nstate.fdv
+        cnt += (pv-12) * 10 + (fdv - 1)
         return cnt
     
-    def _to_state(self, state):
-        return self.NMAPPER[state]
+    def _get_nominal_state(self):
+        """The Actual Game Explicit State Information"""
+        return BJS(
+            self.player_hand.usable_ace(),
+            self.player_hand.get_value(),
+            VALUES[self.dealer_hand.cards[0].get_rank()]
+        )
     
-    def _to_idx(self, state):
-        return self.SMAPPER[state]
-
-
-    def deal(self):
+    def _deal(self):
+        """Starts the game with new hands and new deck of cards"""
         self.reset()
-        
         self.in_play = True
-        self.outcome = 'Hit or Stand?'
-        if self.debug:
-            print(self.outcome)
         self.deck = Deck()
         self.dealer_hand = Hand()
         self.player_hand = Hand()
         
         self.deck.shuffle()
-        for _ in range(2): # 2 cards each hand
+        for _ in range(2):  # 2 cards each hand
             self.player_hand.add_card(self.deck.deal_card())
             self.dealer_hand.add_card(self.deck.deal_card())
         
@@ -184,70 +215,45 @@ class BlackJack(FiniteMDPENV):
         while self.player_hand.get_value() < 12:
             self.player_hand.add_card(self.deck.deal_card())
         
-        if self.debug:
-            print('\nNew deal,', 'current score = {}'.format(self.score))
-            print('Dealer', self.dealer_hand, '=', self.dealer_hand.get_value())
-            print('Player', self.player_hand, '=', self.player_hand.get_value())
-               
-
-    def hit(self):
+    def _hit(self):
+        """Palyer hit get new card"""
         if not self.in_play:
             return 0
-
+        
+        # deal new card to player
         self.player_hand.add_card(self.deck.deal_card())
         
-        if self.debug:
-            print('Hit!')
-            print('Player', self.player_hand, '=', self.player_hand.get_value())
-        
+        # check if busted
         if self.player_hand.is_busted():
-            self.outcome = 'You have busted, new deal?'
-            if self.debug:
-                print(self.outcome)
             self.in_play = False
             self.score -= 1
-            return -1
+            return -1  # loss
         return 0
-
         
-    def stand(self):
+    def _stand(self):
+        """Player stand, dealer draw then compare"""
         if not self.in_play:
             return 0
         
-        if self.debug:
-            print('Dealer is drawing cards')
-
+        # dealer draws cards until 17 or more
+        # and she must stand if the value is >= 17
         while self.dealer_hand.get_value() < 17:
             self.dealer_hand.add_card(self.deck.deal_card())
         
         reward = 0
         pv, dv = self.player_hand.get_value(), self.dealer_hand.get_value()
-        if dv > 21:
+        if dv > 21:  # dealer busted
             self.score += 1
             reward += 1
-            self.outcome = 'Dealer is busted, you win! New deal?'
-            if self.debug:
-                print(self.outcome)
-            
-            if self.debug:
-                print('Dealer =', self.dealer_hand, dv)
-                print('Dealer =', dv, 'Player =', pv)
         else:
-            if pv > dv:
+            if pv > dv:  # win
                 self.score += 1
                 reward += 1
-                self.outcome = 'Your value is higher, you win! New deal?'
-            elif pv < dv:
+            elif pv < dv:   # loss
                 self.score -= 1
                 reward -= 1
-                self.outcome = 'Dealer value is higher, you loss! New deal?'
-            else:
-                self.outcome = 'Draw!'
-            
-            if self.debug:
-                print('Dealer', self.dealer_hand, '=', self.dealer_hand.get_value())
-                print('Player', self.player_hand, '=', self.player_hand.get_value())
-                print(self.outcome)
+            else:  # draw
+                reward += 0
         
         self.in_play = False
         return reward
