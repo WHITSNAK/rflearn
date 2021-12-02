@@ -5,7 +5,7 @@ using monte carlo based method, model-free
 import numpy as np
 from tqdm import tqdm
 from itertools import product
-from collections import namedtuple
+from collections import namedtuple, deque
 from .base import GPI
 
 
@@ -41,6 +41,7 @@ class MCEpsilonSoft(GPI):
     Monte Carlo Policy Interation Algorithm
     - with ϵ-soft policy support
     - Monte Carlo only works on episodic tasks
+    - uses first visit policy improvement
 
     int parameter
     -------------
@@ -48,7 +49,6 @@ class MCEpsilonSoft(GPI):
     value: [1 x S], init expected value for all states in a row vector
     policy: [S x A], stochastic policy for all states map to action
     qvalue: [S x A], init expected value for all state-action pair in a matrix
-    pbar_leave: bool, flag to control tqdm progress bar on whether leaveing the end results on screen
 
     fit parameter
     -------------
@@ -59,9 +59,8 @@ class MCEpsilonSoft(GPI):
     kbath: int, the number of episode in a batch to process in each policy evaluation
     max_steps: int (default None), max steps on taking a episode for early stopping if too long
     """
-    def __init__(self, env, value, policy, qvalue=None, pbar_leave=True):
+    def __init__(self, env, value, policy, qvalue=None):
         super().__init__(env, value, policy)
-        self.pbar_leave = pbar_leave
         # the action-value function/table
         self.qvalue = \
             {k:0 for k in product(env.S, env.A)} \
@@ -76,15 +75,14 @@ class MCEpsilonSoft(GPI):
         self.max_steps = max_steps
 
         # list used for targeted state-action policy improvment
-        self.last_updated_s = []
+        self.last_updated_s = set()
         # state-action pair seen counts for step size inferring
         self.sa_counts = {k:0 for k in product(self.env.S, self.env.A)}
         self.hist = {'avg_r': []}
 
-    def transform(self, iter=1000):
+    def transform(self, iter=1000, pbar_leave=True):
         """Obtain the optimal policy"""
-        for _ in tqdm(range(iter)):
-            self.last_updated_s = []  # reset updated stated
+        for _ in tqdm(range(iter), leave=pbar_leave):
             avg_r = self.evaluate_policy()
             self.improve_policy()
 
@@ -122,7 +120,7 @@ class MCEpsilonSoft(GPI):
             self.qvalue[sa] += 1/step_size * (ret - old_ret)
 
             # update seem states
-            self.last_updated_s.append(sa[0])
+            self.last_updated_s.add(sa[0])
         
         self.hist['avg_r'].append(avg_r)
         return avg_r
@@ -133,20 +131,20 @@ class MCEpsilonSoft(GPI):
             current value estimates argmax[a] q(a|s)
             with ϵ-soft policy to ensure exploration in Monte Carlo
         """
+        # epsilon soft policy
+        nA = len(self.env.A)
+        ϵ = self.epsilon
         for state in self.last_updated_s:
             qs = np.array(self.get_qs(state))
             max_q = np.max(qs)
-
-            # epsilon soft policy
-            nA = len(self.env.A)
-            ϵ = self.epsilon
             max_flag = (qs==max_q)
 
-            # TODO: old vs new policy stable? i don't think it works on MC
             # in respect to bellman optimal equation q*
             new_π = max_flag * (1 - ϵ + ϵ/nA) + ~max_flag * ϵ/nA
             new_π = new_π / np.sum(new_π).sum()  # normalize ∑π(a|s) = 1
             self.policy[state] = new_π
+        
+        self.last_updated_s.clear()
 
     def get_episodes(self, n=1):
         """Generate n episodes of data through Monte Carlo"""
