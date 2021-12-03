@@ -35,12 +35,12 @@ class GPI:
     fit parameter
     -------------
     env: the enviornment
-    value: [1 x S], expected value for all states in a row vector
+    qvalue: [S x A], action values for all states
     policy: [S x A], stochastic policy for all states map to action
     """
-    def __init__(self, env, value, policy):
+    def __init__(self, env, qvalue, policy):
         self.env = env
-        self.value = value.copy()
+        self.qvalue = qvalue
         self.policy = policy
 
     @abstractmethod
@@ -69,4 +69,12 @@ class GPI:
     def get_qs(self, state):
         """Used for value updating from the update diagram"""
         return NotImplemented
+    
+    def get_value(self, state):
+        """Get the expected value v(s) for the current policy"""
+        return self.qvalue.get_value(state, self.policy[state])
+    
+    def get_all_values(self):
+        """Get the expected value table V(S) for the current policy"""
+        return self.qvalue.get_all_values(self.policy)
       

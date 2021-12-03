@@ -1,4 +1,4 @@
-import numpy as np
+from numpy import ones, round, array, max ,sum
 
 
 class TabularPolicy:
@@ -24,7 +24,7 @@ class TabularPolicy:
         if policy is None:
             # uniform random across actions | state
             self.policy = {
-                s: np.ones(len(self.actions)) / len(self.actions)
+                s: ones(len(self.actions)) / len(self.actions)
                 for s in self.states
             }
         else:
@@ -40,7 +40,7 @@ class TabularPolicy:
     
     def __policy_invariant(self, pi):
         assert len(pi) == len(self.actions)  # maps all actions
-        assert np.round(sum(pi)) == 1  # proper distribution & floating precision
+        assert round(sum(pi)) == 1  # proper distribution & floating precision
     
     def __getitem__(self, state):
         """getter interface"""
@@ -60,7 +60,7 @@ class TabularPolicy:
         lst = []
         for state in self.states:
             lst.append(self[state])
-        return np.array(lst)
+        return array(lst)
     
     def greedify(self, state, qvalues):
         """
@@ -71,16 +71,16 @@ class TabularPolicy:
         state: state is the state to look up the policy ....
         qvalues: action-values array that is the same size of 𝐴
         """
-        qs = np.array(qvalues)
+        qs = array(qvalues)
         ϵ = self.epsilon
         nA = len(self.actions)
 
         # caluclates eps-soft policy if eps > 0
-        max_q = np.max(qs)
+        max_q = max(qs)
         max_flag = (qs == max_q)
         nmax = max_flag.sum()  # adjustments for multiple best actions
         new_π = max_flag * (1 - ϵ + (nmax*ϵ)/nA) + ~max_flag * (nmax*ϵ)/nA
-        new_π = new_π / np.sum(new_π)  # normalize ∑π(a|s) = 1, ensures float type
+        new_π = new_π / sum(new_π)  # normalize ∑π(a|s) = 1, ensures float type
 
         # update
         self[state] = new_π

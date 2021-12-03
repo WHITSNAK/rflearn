@@ -6,24 +6,24 @@ import pandas as pd
 import numpy as np
 from rflearn.algo.episode import Episode
 from rflearn.algo.base import State
-from rflearn.algo.policy import TabularPolicy
-
-    
-s1 = State(np.array([1,2,3]*10000))
-s2 = State(np.array([1,2,3]))
-s3 = State(np.array([1,2,3]))
-pol = TabularPolicy(
-    [s1,s2,s3], ['a','b','c'],
-    {s1:[0,0,1], s2:[0,1,0], s3:[0.5,0,0.5]}
-)
-
-print(pol.to_numpy())
-# %%
-import numpy as np
-from rflearn.algo import PolicyIteration, ValueIteration
 from rflearn.env import GridWorld
-from rflearn.algo import TabularPolicy
+from rflearn.algo import PolicyIteration, ValueIteration, TabularPolicy, TabularQValue
 
+# %%
 grid = GridWorld(4, 4)
-value = np.zeros(shape=len(grid.S))
+qvalue = TabularQValue(grid.S, grid.A)
 policy = TabularPolicy(grid.S, grid.A)
+pi_model = PolicyIteration(grid, qvalue, policy)
+pi_model.fit(gamma=1, theta=0.001)
+pi_model.evaluate_policy()
+print(qvalue.get_all_values(policy))
+
+pi_model.improve_policy()
+print(qvalue.get_all_values(policy))
+
+
+# %%
+qvalue.get_all_values(policy)
+
+# %%
+policy.to_numpy()

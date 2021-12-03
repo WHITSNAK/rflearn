@@ -18,7 +18,7 @@ class PolicyIteration(GPI):
     int parameter
     -------------
     env: the enviornment
-    value: [1 x S], expected value for all states in a row vector
+    qvalue: [S x A], action values for all states
     policy: [S x A], stochastic policy for all states map to action
 
     fit parameter
@@ -54,13 +54,10 @@ class PolicyIteration(GPI):
         ------
         new value of the state v_k+1(s)
         """
-        pi_s = self.policy[state]
-        q_sa = self.get_qs(state)
-        new_v = pi_s @ q_sa
-        self.value[state] = new_v
-        return new_v
+        self.qvalue[state] = self.get_updated_qs(state)
+        return self.get_value(state)
 
-    def get_qs(self, state):
+    def get_updated_qs(self, state):
         """
         Get all sucessor q(s',a') for the give state from the updates diagram
 
@@ -69,6 +66,7 @@ class PolicyIteration(GPI):
         [q(s, a_0), q(s, a_1), ..., q(s, a_n)]
         """
         q_sa = []
+        values = self.get_all_values()
         for action in self.env.A:
             # trans matrix (states x 2) where col = [reward, p(s',r|s,a)]
             trans = self.env.transitions(state, action)
@@ -76,7 +74,7 @@ class PolicyIteration(GPI):
             # it sums over all immediate rewards and discounted v(s')
             # then weighted by the jointed transition p(s',r|s,a) probability
             action_value = (
-                np.c_[trans[:,0], self.gamma*self.value].sum(1)
+                np.c_[trans[:,0], self.gamma*values].sum(1)
                 * trans[:,1]
             ).sum()
 
@@ -89,7 +87,7 @@ class PolicyIteration(GPI):
         while delta > self.theta:
             delta = 0
             for state in self.env.S:
-                val = self.value[state]
+                val = self.get_value(state)
                 new_v = self.update_value(state)
                 delta = max(delta, abs(val - new_v))
     
@@ -102,7 +100,7 @@ class PolicyIteration(GPI):
         policy_stable = True
         for state in self.env.S:
             old_π = self.policy[state]
-            qs = np.round(self.get_qs(state), self.sig_digits)
+            qs = np.round(self.qvalue[state], self.sig_digits)
             new_π = self.policy.greedify(state, qs)
             
             if not np.array_equal(new_π, old_π):
@@ -143,10 +141,8 @@ class ValueIteration(PolicyIteration):
         ------
         new value of the state v_k+1(s)
         """
-        q_sa = self.get_qs(state)
-        new_val = np.max(q_sa)
-        self.value[state] = new_val
-        return new_val
+        self.qvalue[state] = self.get_updated_qs(state)
+        return self.qvalue.get_maxq(state)
 
 
     def evaluate_policy(self):
