@@ -23,7 +23,8 @@ print(qvalue.get_all_values(policy))
 
 
 # %%
-qvalue.get_all_values(policy)
+qvalue.qvalue
+
 
 # %%
 policy.to_numpy()

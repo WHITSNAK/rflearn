@@ -59,6 +59,14 @@ class TabularQValue:
             lst.append(self[state])
         return array(lst)
     
+    def get_q(self, state, action):
+        """Specific q value getter"""
+        return self[state][self.get_aidx(action)]
+    
+    def set_q(self, state, action, new_q):
+        """Specific q value setter"""
+        self[state][self.get_aidx(action)] = new_q
+    
     def get_value(self, state, pi):
         """
         Get expected value of a state, aggrates over all action
