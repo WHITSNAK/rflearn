@@ -101,12 +101,9 @@ class PolicyIteration(GPI):
         """
         policy_stable = True
         for state in self.env.S:
-            old_π = self.policy[state].copy()
+            old_π = self.policy[state]
             qs = np.round(self.get_qs(state), self.sig_digits)
-            max_q = np.max(qs)
-            new_π = [1 if q==max_q else 0 for q in qs]
-            new_π = np.divide(new_π, np.sum(new_π))
-            self.policy[state] = new_π
+            new_π = self.policy.greedify(state, qs)
             
             if not np.array_equal(new_π, old_π):
                 policy_stable = False

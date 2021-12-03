@@ -9,12 +9,14 @@ class TabularPolicy:
     ---------
     states: list, [s0, s1, ...] all avaliable states s ∈ 𝑆
     actions: list, [a0, a1, ...] all avaliable actions a ∈ 𝐴
-    policy: dict of list (default None) {|𝑆|: |𝐴|}
+    epsilon: float (default 0), ϵ-soft parameter that takes random action
+    policy: dict of {list, array} (default None) {|𝑆|: |𝐴|}
         if not provided, will use uniform random policy
     """
-    def __init__(self, states, actions, policy=None):
+    def __init__(self, states, actions, epsilon=0, policy=None):
         self.states = states
         self.actions = actions
+        self.epsilon = epsilon
         self.shape = len(self.states), len(self.actions)
         self._a_mapper = {a:i for i, a in enumerate(self.actions)}
 
@@ -34,12 +36,11 @@ class TabularPolicy:
             self.__policy_invariant(pi)
     
     def __repr__(self):
-        shape = self.shape
-        return f"Policy [{shape[0]} x {shape[1]}]"
+        return f"Policy [{self.shape[0]} x {self.shape[1]} | ϵ={self.epsilon}]"
     
     def __policy_invariant(self, pi):
         assert len(pi) == len(self.actions)  # maps all actions
-        assert sum(pi) == 1  # proper distribution
+        assert np.round(sum(pi)) == 1  # proper distribution & floating precision
     
     def __getitem__(self, state):
         """getter interface"""
@@ -60,3 +61,27 @@ class TabularPolicy:
         for state in self.states:
             lst.append(self[state])
         return np.array(lst)
+    
+    def greedify(self, state, qvalues):
+        """
+        Greedify the policy π(a|s) in respect to action-values/qvalues
+        
+        parameter
+        ---------
+        state: state is the state to look up the policy ....
+        qvalues: action-values array that is the same size of 𝐴
+        """
+        qs = np.array(qvalues)
+        ϵ = self.epsilon
+        nA = len(self.actions)
+
+        # caluclates eps-soft policy if eps > 0
+        max_q = np.max(qs)
+        max_flag = (qs == max_q)
+        nmax = max_flag.sum()  # adjustments for multiple best actions
+        new_π = max_flag * (1 - ϵ + (nmax*ϵ)/nA) + ~max_flag * (nmax*ϵ)/nA
+        new_π = new_π / np.sum(new_π)  # normalize ∑π(a|s) = 1, ensures float type
+
+        # update
+        self[state] = new_π
+        return new_π
