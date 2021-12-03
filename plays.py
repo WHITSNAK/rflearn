@@ -17,7 +17,13 @@ pol = TabularPolicy(
     {s1:[0,0,1], s2:[0,1,0], s3:[0.5,0,0.5]}
 )
 
-
+print(pol.to_numpy())
 # %%
-a, b, c = [1,2,3]
-print(a, b)
+import numpy as np
+from rflearn.algo import PolicyIteration, ValueIteration
+from rflearn.env import GridWorld
+from rflearn.algo import TabularPolicy
+
+grid = GridWorld(4, 4)
+value = np.zeros(shape=len(grid.S))
+policy = TabularPolicy(grid.S, grid.A)

@@ -29,7 +29,7 @@ class TabularPolicy:
             self.policy = policy
         
         # ensures invariants
-        assert set(policy) == set(self.states)  # one to one mapping
+        assert set(self.policy) == set(self.states)  # one to one mapping
         for _, pi in self.policy.items():
             self.__policy_invariant(pi)
     
@@ -54,3 +54,9 @@ class TabularPolicy:
         """get action index"""
         return self._a_mapper[action]
     
+    def to_numpy(self):
+        """Convert the policy table to numpy array as |𝑆| x |𝐴|"""
+        lst = []
+        for state in self.states:
+            lst.append(self[state])
+        return np.array(lst)

@@ -2,13 +2,15 @@ import pytest
 import numpy as np
 from rflearn.algo import PolicyIteration, ValueIteration
 from rflearn.env import GridWorld
+from rflearn.algo import TabularPolicy
 
 
 @pytest.fixture
 def grid44():
     grid = GridWorld(4, 4)
     value = np.zeros(shape=len(grid.S))
-    policy = np.ones(shape=(len(grid.S), len(grid.A))) / len(grid.A)
+    policy = TabularPolicy(grid.S, grid.A)
+    # policy = np.ones(shape=(len(grid.S), len(grid.A))) / len(grid.A)
     return grid, value, policy
 
 
@@ -44,7 +46,7 @@ def test_policy_iteration_grid_44_1step(pi_on_44grid):
     )
 
     assert np.allclose(
-        pi_model.policy,
+        pi_model.policy.to_numpy(),
         np.array([[0.25, 0.25, 0.25, 0.25],
                   [0.  , 0.  , 1.  , 0.  ],
                   [0.  , 0.  , 1.  , 0.  ],
@@ -79,7 +81,7 @@ def test_value_iteration_grid_44_allsteps(vi_on_44grid):
     )
 
     assert np.allclose(
-        vi_model.policy,
+        vi_model.policy.to_numpy(),
         np.array([[0.25, 0.25, 0.25, 0.25],
                   [0.  , 0.  , 1.  , 0.  ],
                   [0.  , 0.  , 1.  , 0.  ],
@@ -115,7 +117,7 @@ def test_policy_iteration_grid_44_allsteps(pi_on_44grid):
     )
 
     assert np.allclose(
-        pi_model.policy,
+        pi_model.policy.to_numpy(),
         np.array([[0.25, 0.25, 0.25, 0.25],
                   [0.  , 0.  , 1.  , 0.  ],
                   [0.  , 0.  , 1.  , 0.  ],

@@ -35,4 +35,14 @@ def test_invariant(policy1):
 
     with pytest.raises(AssertionError):
         pol[s1] = [1, 0, 1]
-    
+
+
+def test_to_numpy(policy1):
+    pol = policy1
+
+    assert np.array_equal(
+        pol.to_numpy(),
+        np.array([[0. , 0. ,1. ],
+                  [0. , 1. ,0. ],
+                  [0.5, 0. ,0.5]]),
+    )

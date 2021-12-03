@@ -41,7 +41,7 @@ class GPI:
     def __init__(self, env, value, policy):
         self.env = env
         self.value = value.copy()
-        self.policy = policy.copy()
+        self.policy = policy
 
     @abstractmethod
     def fit(self):
