@@ -10,7 +10,7 @@ from .episode import Episode, EpisodeStep
 
 
 
-class MCEpsilonSoft(GPI):
+class MCIteration(GPI):
     """
     Monte Carlo Policy Interation Algorithm
     - with ϵ-soft policy support
@@ -33,6 +33,7 @@ class MCEpsilonSoft(GPI):
         """Setting the algorithm"""
         self.gamma = gamma
         self.alpha = alpha
+        self.hist = []
 
         # list used for targeted state-action policy improvment
         self.last_updated_s = set()
@@ -40,8 +41,6 @@ class MCEpsilonSoft(GPI):
         # state-action pair seen counts for step size inferring
         if self.alpha is None:
             self.sa_counts = {k:0 for k in product(self.env.S, self.env.A)}
-            
-        self.hist = []
 
     def transform(self, iter=1000, kbatch=30, max_steps=None, pbar_leave=True):
         """

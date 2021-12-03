@@ -9,9 +9,7 @@ from rflearn.algo import TabularPolicy, TabularQValue
 def grid44():
     grid = GridWorld(4, 4)
     qvalue = TabularQValue(grid.S, grid.A)
-    # value = np.zeros(shape=len(grid.S))
     policy = TabularPolicy(grid.S, grid.A)
-    # policy = np.ones(shape=(len(grid.S), len(grid.A))) / len(grid.A)
     return grid, qvalue, policy
 
 
