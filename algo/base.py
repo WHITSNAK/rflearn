@@ -1,7 +1,28 @@
 """
 Module that hosts base/abstract algorithm
 """
+import uuid
 from abc import abstractmethod
+
+
+class State:
+    """Simple state encoder that is invariant to the atual values"""
+    def __init__(self, val):
+        # random id unique to the Env
+        self.id = uuid.uuid4()
+        self.val = val
+    
+    def __hash__(self):
+        return hash(self.id)
+    
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __repr__(self):
+        return f'State<{self.val}>'
+    
+    def get_val(self):
+        return self.val
 
 
 class GPI:

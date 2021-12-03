@@ -5,35 +5,9 @@ using monte carlo based method, model-free
 import numpy as np
 from tqdm import tqdm
 from itertools import product
-from collections import namedtuple, deque
 from .base import GPI
+from .episode import Episode
 
-
-EpisodeStep = namedtuple('EpisodeStep', ['s0','a0','r1','s1','is_terminal'])
-
-class Episode:
-    """Simple episode tracking class"""
-    def __init__(self):
-        self.nsteps = 0
-        self.steps = []
-    
-    def __iter__(self):
-        for step in self.steps:
-            yield step
-    
-    def __getitem__(self, idx):
-        return self.steps[idx]
-        
-    def __repr__(self):
-        main_str = f'Episode<n:{self.nsteps}>'
-        for step in self:
-            main_str += '\n'+' '*4 + str(step)
-        return main_str
-
-    def add_step(self, s0, a0, r1, s1, is_terminal):
-        self.nsteps += 1
-        step = EpisodeStep(s0, a0, r1, s1, is_terminal)
-        self.steps.append(step)
 
 
 class MCEpsilonSoft(GPI):
@@ -90,10 +64,10 @@ class MCEpsilonSoft(GPI):
         """Update q(a|s) with newly generated MC episode"""
         # construct returns for each (s,a) pair
         epso_lst = self.get_episodes(n=self.kbatch)
-        avg_r = 0
+        avg_r = 0  # mean total rewards
         qs = {}
         for epso in epso_lst:
-            avg_r += sum(step.r1 for step in epso)
+            avg_r += epso.get_total_rewards()
             ret = 0
             for step in epso[::-1]:  # start from the terminal step
                 sa = step.s0, step.a0  # tuple pair
@@ -141,7 +115,7 @@ class MCEpsilonSoft(GPI):
 
             # in respect to bellman optimal equation q*
             new_π = max_flag * (1 - ϵ + ϵ/nA) + ~max_flag * ϵ/nA
-            new_π = new_π / np.sum(new_π).sum()  # normalize ∑π(a|s) = 1
+            new_π = new_π / np.sum(new_π)  # normalize ∑π(a|s) = 1
             self.policy[state] = new_π
         
         self.last_updated_s.clear()
