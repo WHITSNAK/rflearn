@@ -135,6 +135,15 @@ class BlackJack(FiniteMDPENV):
     """
     def __init__(self):
         self.score = 0
+
+        self.__states = []
+        gen = product(
+            [True, False],
+            range(12, 31+1),
+            range(1, 10+1),
+        )
+        for state in gen:
+            self.__states.append(BJS(*state))
         self.reset()
     
     def reset(self):
@@ -144,51 +153,30 @@ class BlackJack(FiniteMDPENV):
         self.player_hand = None
         self.s0 = None
     
-    def __iter__(self):
-        """All generator of internal states"""
-        gen = product(
-            [True, False],
-            range(12, 21+1),
-            range(1, 10+1),
-        )
-        for state in gen:
-            yield BJS(*state)
-
     @property
     def A(self):
         return ['hit', 'stand']
 
     @property
     def S(self):
-        return list(self._get_state(nstate) for nstate in self)
+        return self.__states
     
     def start(self):
         """Start the game fresh"""
         self._deal()
-        nstate = self._get_nominal_state()
-        self.s0 = self._get_state(nstate)
+        self.s0 = self._get_nominal_state()
         return self.s0
 
     def step(self, action):
         """Take action/step forward"""
         reward = self.__getattribute__('_'+action)()
-        nstate = self._get_nominal_state()
-        self.s0 = self._get_state(nstate)
+        self.s0 = self._get_nominal_state()
         return self.s0, reward
     
     def is_terminal(self):
         """Terminal state flag"""
         return not self.in_play
-    
-    def _get_state(self, nstate):
-        """Internal hand to state mapper"""
-        cnt = 0
-        if not nstate.ace:
-            cnt += 100
-        pv, fdv = nstate.pv, nstate.fdv
-        cnt += (pv-12) * 10 + (fdv - 1)
-        return cnt
-    
+
     def _get_nominal_state(self):
         """The Actual Game Explicit State Information"""
         return BJS(
