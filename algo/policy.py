@@ -1,4 +1,5 @@
-from numpy import ones, round, array, max ,sum
+from numpy import ones, round, array, max, sum
+from numpy.random import choice
 
 
 class TabularPolicy:
@@ -85,3 +86,6 @@ class TabularPolicy:
         # update
         self[state] = new_π
         return new_π
+
+    def get_action(self, state):
+        return choice(self.actions, p=self[state])

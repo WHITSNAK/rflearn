@@ -118,7 +118,7 @@ class MCIteration(GPI):
             epso = Episode()
             s0 = self.env.start()
             while True:
-                a = np.random.choice(self.env.A, p=self.policy[s0])
+                a = self.policy.get_action(s0)
                 s1, r = self.env.step(a)
                 is_t = self.env.is_terminal()
                 epso.add_step(s0, a, r, s1, is_t)
