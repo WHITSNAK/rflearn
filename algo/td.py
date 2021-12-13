@@ -17,12 +17,11 @@ class Sarsa(GPI):
             self.sa_counts = {k:0 for k in product(self.env.S, self.env.A)}
 
     def transform(self, iter=1000, pbar_leave=True):
-        pbar = tqdm(total=iter, leave=pbar_leave)
-        for step in self.get_steps(iter):
-            state = self.evaluate_policy(step)
-            self.improve_policy(state)
-            pbar.update(1)
-        pbar.close()
+        with tqdm(total=iter, leave=pbar_leave) as pbar:
+            for step in self.get_steps(iter):
+                state = self.evaluate_policy(step)
+                self.improve_policy(state)
+                pbar.update(1)
     
     def evaluate_policy(self, step):
         s0, a, r, s1, is_t = step
@@ -35,14 +34,17 @@ class Sarsa(GPI):
             α = self.alpha
 
         q = self.qvalue.get_q(s0, a)
-        a1 = self.policy.get_action(s1)
-        target = r + self.gamma * self.qvalue.get_q(s1, a1)
+        target = self.get_target(r, s1)
         error = target - q
         new_q = q + α * error
         self.qvalue.set_q(s0, a, new_q)
         self.hist.append(error)
         return s0
     
+    def get_target(self, r, s1):
+        a1 = self.policy.get_action(s1)
+        return r + self.gamma * self.qvalue.get_q(s1, a1)
+
     def improve_policy(self, state):
         self.policy.greedify(state, self.qvalue[state])
     
@@ -61,3 +63,18 @@ class Sarsa(GPI):
             cnt += 1
             if is_t:
                 s0 = self.env.start()
+
+
+
+class ExpectedSarsa(Sarsa):
+    def get_target(self, r, s1):
+        pi = self.policy[s1]
+        val = self.qvalue.get_value(s1, pi)
+        return r + self.gamma * val
+
+
+
+class QLearning(Sarsa):
+    def get_target(self, r, s1):
+        max_q = self.qvalue.get_maxq(s1)
+        return r + self.gamma * max_q

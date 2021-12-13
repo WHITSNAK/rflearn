@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 from itertools import product
 from .base import GPI
-from .episode import Episode, EpisodeStep
+from .episode import Episode
 
 
 
