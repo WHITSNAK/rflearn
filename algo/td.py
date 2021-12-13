@@ -5,11 +5,33 @@ from .episode import EpisodeStep
 from itertools import product
 
 
-class Sarsa(GPI):
-    def fit(self, gamma=1, alpha=None):
+class TDIteration(GPI):
+    """
+    Sarsa Policy Interation Algorithm in TD Family
+    - Works on both continuous and episodic tasks
+
+    int parameter
+    -------------
+    env: the enviornment
+    qvalue: [S x A], init expected value for all state-action pair in a matrix
+    policy: [S x A], stochastic policy for all states map to action
+
+    fit parameter
+    -------------
+    gamma: float, the reward discount rate
+    alpha: float (default None), the learning rate
+        - None, would use same average method instead 
+    kind: str, {'simple', 'expected', 'maxq'}
+        - this determents on how to caculate the TD-Target
+        - simple -> Sarsa
+        - expected -> ExpectedSarsa
+        - maxq -> Q Learning
+    """
+    def fit(self, gamma=1, alpha=None, kind='expected'):
         """Setting the algorithm"""
         self.gamma = gamma
         self.alpha = alpha
+        self.kind = kind
         self.hist = []
 
         # state-action pair seen counts for step size inferring
@@ -38,12 +60,29 @@ class Sarsa(GPI):
         error = target - q
         new_q = q + α * error
         self.qvalue.set_q(s0, a, new_q)
-        self.hist.append(error)
+        self.hist.append({
+            'td-error': error,
+            'step': step,
+        })
         return s0
     
     def get_target(self, r, s1):
-        a1 = self.policy.get_action(s1)
-        return r + self.gamma * self.qvalue.get_q(s1, a1)
+        """Calcuates the TD-Target"""
+        if self.kind == 'simple':
+            a1 = self.policy.get_action(s1)
+            target = r + self.gamma * self.qvalue.get_q(s1, a1)
+
+        elif self.kind == 'expected':
+            pi = self.policy[s1]
+            val = self.qvalue.get_value(s1, pi)
+            target = r + self.gamma * val
+
+        elif self.kind == 'maxq':
+            max_q = self.qvalue.get_maxq(s1)
+            target = r + self.gamma * max_q
+        
+        return target
+
 
     def improve_policy(self, state):
         self.policy.greedify(state, self.qvalue[state])
@@ -63,18 +102,3 @@ class Sarsa(GPI):
             cnt += 1
             if is_t:
                 s0 = self.env.start()
-
-
-
-class ExpectedSarsa(Sarsa):
-    def get_target(self, r, s1):
-        pi = self.policy[s1]
-        val = self.qvalue.get_value(s1, pi)
-        return r + self.gamma * val
-
-
-
-class QLearning(Sarsa):
-    def get_target(self, r, s1):
-        max_q = self.qvalue.get_maxq(s1)
-        return r + self.gamma * max_q

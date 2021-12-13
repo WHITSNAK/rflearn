@@ -13,9 +13,8 @@ from .episode import Episode
 class MCIteration(GPI):
     """
     Monte Carlo Policy Interation Algorithm
-    - with ϵ-soft policy support
     - Monte Carlo only works on episodic tasks
-    - uses first visit policy improvement
+    - uses every visit policy improvement
 
     int parameter
     -------------
