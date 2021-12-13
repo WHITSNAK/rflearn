@@ -22,7 +22,7 @@ class TDIteration(GPI):
     alpha: float (default None), the learning rate
         - None, would use same average method instead 
     kind: str, {'simple', 'expected', 'maxq'}
-        - this determents on how to caculate the TD-Target
+        - it determents on how to caculate the TD-Target
         - simple -> Sarsa
         - expected -> ExpectedSarsa
         - maxq -> Q Learning
@@ -39,6 +39,7 @@ class TDIteration(GPI):
             self.sa_counts = {k:0 for k in product(self.env.S, self.env.A)}
 
     def transform(self, iter=1000, pbar_leave=True):
+        """Learn the optimal policy and value"""
         with tqdm(total=iter, leave=pbar_leave) as pbar:
             for step in self.get_steps(iter):
                 state = self.evaluate_policy(step)
@@ -46,6 +47,7 @@ class TDIteration(GPI):
                 pbar.update(1)
     
     def evaluate_policy(self, step):
+        """Take in account of new information"""
         s0, a, r, s1, is_t = step
 
         # step size α
@@ -60,6 +62,8 @@ class TDIteration(GPI):
         error = target - q
         new_q = q + α * error
         self.qvalue.set_q(s0, a, new_q)
+
+        # recording
         self.hist.append({
             'td-error': error,
             'step': step,
@@ -68,23 +72,23 @@ class TDIteration(GPI):
     
     def get_target(self, r, s1):
         """Calcuates the TD-Target"""
-        if self.kind == 'simple':
+        if self.kind == 'simple':  # Sarsa
             a1 = self.policy.get_action(s1)
             target = r + self.gamma * self.qvalue.get_q(s1, a1)
 
-        elif self.kind == 'expected':
+        elif self.kind == 'expected':  # Expected Sarsa
             pi = self.policy[s1]
             val = self.qvalue.get_value(s1, pi)
             target = r + self.gamma * val
 
-        elif self.kind == 'maxq':
+        elif self.kind == 'maxq':  # Q Learning
             max_q = self.qvalue.get_maxq(s1)
             target = r + self.gamma * max_q
         
         return target
 
-
     def improve_policy(self, state):
+        """Greedify the policy"""
         self.policy.greedify(state, self.qvalue[state])
     
     def get_steps(self, steps=100):
@@ -98,6 +102,7 @@ class TDIteration(GPI):
             step = EpisodeStep(s0, a, r, s1, is_t)
             yield step
 
+            # prepare for the next step
             s0 = s1
             cnt += 1
             if is_t:

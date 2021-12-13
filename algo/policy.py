@@ -65,18 +65,22 @@ class TabularPolicy:
     
     def greedify(self, state, qvalues):
         """
-        Greedify the policy π(a|s) in respect to action-values/qvalues
+        Greedify the policy π(a|s), in place, in respect to action-values/qvalues
         
         parameter
         ---------
-        state: state is the state to look up the policy ....
-        qvalues: action-values array that is the same size of 𝐴
+        state: s ∈ 𝑆, state is the state to look up the policy ....
+        qvalues: array q(s, a) ∀ a ∈ 𝐴, action-values array that is the same size of 𝐴
+
+        return
+        -------
+        new π(a|s)
         """
         qs = array(qvalues)
         ϵ = self.epsilon
         nA = len(self.actions)
 
-        # caluclates eps-soft policy if eps > 0
+        # caluclates ϵ-soft policy if eps > 0
         max_q = max(qs)
         max_flag = (qs == max_q)
         nmax = max_flag.sum()  # adjustments for multiple best actions
@@ -88,4 +92,28 @@ class TabularPolicy:
         return new_π
 
     def get_action(self, state):
+        """Pick the action based on the policy and given observation/state"""
         return choice(self.actions, p=self[state])
+    
+    def is_trace(self, exp, behavior):
+        """
+        Caculates the trace of importance sampling ratios of a given experience
+        
+        parameter
+        ---------
+        exp: Episode, a seqeunce of experiences
+        behavior: Policy, the behavior policy that generated the experience
+
+        return
+        ------
+        list of tuple, [(target π(a|s), behavior b(a|s), isratio ρ), ...]
+            that is the same size and order of the sequence of exp
+        """
+        data = []
+        for step in exp:
+            s0, a0, _, _, _ = step
+            tp = self[s0][self.get_aidx(a0)]
+            bp = behavior[s0][behavior.get_aidx(a0)]
+            rho = tp / bp
+            data.append((tp, bp, rho))
+        return data
