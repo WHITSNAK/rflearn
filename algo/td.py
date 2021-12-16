@@ -48,7 +48,7 @@ class TDIteration(GPI):
     
     def evaluate_policy(self, step):
         """Take in account of new information"""
-        s0, a, r, s1, is_t = step
+        s0, a, r, s1, _ = step
 
         # step size α
         if not self.alpha:
